@@ -174,19 +174,27 @@ class ErrorHandler:
         """
         Handle errors raised in dispatcher
         """
-        # Log the error
-        logger.error(f"Exception while handling an update: {context.error}", exc_info=True)
-        
-        # Track in monitoring
-        self.monitoring.log_error(
-            context.error,
-            {
-                'update_id': update.update_id if update else None,
-                'user_id': update.effective_user.id if update and update.effective_user else None,
-                'chat_id': update.effective_chat.id if update and update.effective_chat else None
-            }
+        import traceback
+
+        # Always log full traceback so we can see the real error
+        logger.error(
+            f"Exception while handling an update: {context.error}\n"
+            f"{''.join(traceback.format_exception(type(context.error), context.error, context.error.__traceback__))}",
         )
-        
+
+        # Track in monitoring (safe - won't raise)
+        try:
+            self.monitoring.log_error(
+                context.error,
+                {
+                    'update_id': update.update_id if update else None,
+                    'user_id': update.effective_user.id if update and update.effective_user else None,
+                    'chat_id': update.effective_chat.id if update and update.effective_chat else None
+                }
+            )
+        except Exception as e:
+            logger.warning(f"Could not log error to monitoring: {e}")
+
         # Notify user
         try:
             if update and update.effective_message:
@@ -194,9 +202,9 @@ class ErrorHandler:
                     "❌ An error occurred while processing your request.\n"
                     "Our team has been notified and will look into it."
                 )
-        except:
+        except Exception:
             pass
-        
+
         # Notify admins for critical errors
         if self._is_critical_error(context.error):
             asyncio.create_task(self._notify_admins(context.error, update))
