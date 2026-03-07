@@ -1,13 +1,13 @@
 # fx/services/mt5_manager.py
 import asyncio
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Tuple
 from datetime import datetime, timedelta
 import logging
 from contextlib import asynccontextmanager
 import time
 
 from metaapi_cloud_sdk import MetaApi
-from metaapi_cloud_sdk.clients.metaApi.metaApiWebsocket_client import MetaApiWebsocketClient
+from metaapi_cloud_sdk.clients.metaApiWebsocket_client import MetaApiWebsocketClient
 from sqlalchemy.orm import Session
 
 from database.repositories import UserRepository, ConnectionLogRepository
