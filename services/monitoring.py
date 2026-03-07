@@ -236,18 +236,29 @@ class MonitoringService:
     def log_error(self, error: Exception, context: Dict[str, Any] = None):
         """Log an error for monitoring"""
         logger.error(f"Error logged: {error}", exc_info=True)
-        
-        # Store in database
-        metric = SystemMetric(
-            metric_name='error_count',
-            metric_value=1,
-            tags={
-                'error_type': error.__class__.__name__,
-                'context': str(context)
-            }
-        )
-        self.db.add(metric)
-        self.db.commit()
+
+        try:
+            # If the session is in a failed state from a previous exception,
+            # roll it back first so we can start a clean transaction
+            self.db.rollback()
+
+            metric = SystemMetric(
+                metric_name='error_count',
+                metric_value=1,
+                tags={
+                    'error_type': error.__class__.__name__,
+                    'context': str(context)
+                }
+            )
+            self.db.add(metric)
+            self.db.commit()
+        except Exception as db_err:
+            # Don't let error-logging errors crash the error handler
+            logger.warning(f"Failed to persist error metric to DB: {db_err}")
+            try:
+                self.db.rollback()
+            except Exception:
+                pass
     
     def get_performance_report(self) -> Dict[str, Any]:
         """Generate performance report"""
