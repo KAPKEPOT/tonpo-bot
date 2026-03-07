@@ -39,3 +39,4 @@ pytest-cov==5.0.0
 click==8.1.8
 colorama==0.4.6
 tqdm==4.67.1
+pydantic-settings
