@@ -434,10 +434,12 @@ class TradingHandler:
         context.user_data.clear()
         return ConversationHandler.END
 
-# Defined after class so TradingHandler is in scope
-TRADING_STATES = {
-    ENTER_TRADE: [MessageHandler(filters.TEXT & ~filters.COMMAND, TradingHandler.receive_trade)],
-    CONFIRM_TRADE: [CallbackQueryHandler(TradingHandler.confirm_trade, pattern='^trade_')],
-    ADJUST_RISK: [MessageHandler(filters.TEXT, TradingHandler.adjust_risk)],
-    EXECUTING: [],
-}
+    def get_states(self):
+        """Return conversation states using bound instance methods"""
+        # Defined after class so TradingHandler is in scope
+        return  {
+            ENTER_TRADE: [MessageHandler(filters.TEXT & ~filters.COMMAND, self.receive_trade)],
+            CONFIRM_TRADE: [CallbackQueryHandler(self.confirm_trade, pattern='^trade_')],
+            ADJUST_RISK: [MessageHandler(filters.TEXT, self.adjust_risk)],
+            EXECUTING: [],
+        }

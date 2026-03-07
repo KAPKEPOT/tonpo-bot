@@ -10,10 +10,10 @@ from telegram.ext import (
 from config.settings import settings
 from database.database import db_manager
 from bot.handlers import CommandHandlers
-from bot.registration import RegistrationHandler, REGISTRATION_STATES
-from bot.trading import TradingHandler, TRADING_STATES
-from bot.settings import SettingsHandler, SETTINGS_STATES
-from bot.admin import AdminHandler, ADMIN_STATES
+from bot.registration import RegistrationHandler
+from bot.trading import TradingHandler
+from bot.settings import SettingsHandler
+from bot.admin import AdminHandler
 from bot.middleware import AuthMiddleware, RateLimitMiddleware, ErrorHandler
 from services.mt5_manager import MT5ConnectionManager
 from services.notification import NotificationService
@@ -93,7 +93,7 @@ class Bot:
         # Registration conversation
         reg_conv = ConversationHandler(
             entry_points=[CommandHandler("register", self.registration.start)],
-            states=REGISTRATION_STATES,
+            states=self.registration.get_states(),
             fallbacks=[CommandHandler("cancel", self.registration.cancel)],
             name="registration",
             persistent=True,
@@ -104,7 +104,7 @@ class Bot:
         # Trading conversation
         trade_conv = ConversationHandler(
             entry_points=[CommandHandler("trade", self.auth_middleware.wrap(self.trading.start_trade))],
-            states=TRADING_STATES,
+            states=self.trading.get_states(),
             fallbacks=[CommandHandler("cancel", self.trading.cancel)],
             name="trading",
             persistent=True,
@@ -115,7 +115,7 @@ class Bot:
         # Calculate conversation
         calc_conv = ConversationHandler(
             entry_points=[CommandHandler("calculate", self.auth_middleware.wrap(self.trading.start_calculate))],
-            states=TRADING_STATES,
+            states=self.trading.get_states(),
             fallbacks=[CommandHandler("cancel", self.trading.cancel)],
             name="calculate",
             persistent=True,
@@ -126,7 +126,7 @@ class Bot:
         # Settings conversation
         settings_conv = ConversationHandler(
             entry_points=[CommandHandler("settings", self.auth_middleware.wrap(self.settings_handler.start))],
-            states=SETTINGS_STATES,
+            states=self.settings_handler.get_states(),
             fallbacks=[CommandHandler("cancel", self.settings_handler.cancel)],
             name="settings",
             persistent=True,

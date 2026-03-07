@@ -296,13 +296,14 @@ class RegistrationHandler:
         
         return ConversationHandler.END
 
-
-# Defined after class so RegistrationHandler is in scope
-REGISTRATION_STATES = {
-    ENTER_ACCOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, RegistrationHandler.receive_account)],
-    ENTER_PASSWORD: [MessageHandler(filters.TEXT & ~filters.COMMAND, RegistrationHandler.receive_password)],
-    ENTER_SERVER: [MessageHandler(filters.TEXT & ~filters.COMMAND, RegistrationHandler.receive_server)],
-    CONFIRM_CREDENTIALS: [CallbackQueryHandler(RegistrationHandler.confirm_credentials, pattern='^confirm_')],
-    VERIFYING: [],  # No input while verifying
-    COMPLETE: [MessageHandler(filters.TEXT, RegistrationHandler.complete)],
-}
+    def get_states(self):
+        """Return conversation states using bound instance methods"""
+        # Defined after class so RegistrationHandler is in scope
+        return  {
+            ENTER_ACCOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, self.receive_account)],
+            ENTER_PASSWORD: [MessageHandler(filters.TEXT & ~filters.COMMAND, self.receive_password)],
+            ENTER_SERVER: [MessageHandler(filters.TEXT & ~filters.COMMAND, self.receive_server)],
+            CONFIRM_CREDENTIALS: [CallbackQueryHandler(self.confirm_credentials, pattern='^confirm_')],
+            VERIFYING: [],  # No input while verifying
+            COMPLETE: [MessageHandler(filters.TEXT, self.complete)],
+        }

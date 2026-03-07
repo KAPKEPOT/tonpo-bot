@@ -399,11 +399,13 @@ class AdminHandler:
         asyncio.create_task(self._execute_broadcast(message))
         await update.message.reply_text("📢 Broadcast started.")
 
-# Defined after class so AdminHandler is in scope
-ADMIN_STATES = {
-    ADMIN_MAIN: [CallbackQueryHandler(AdminHandler.handle_menu, pattern='^admin_')],
-    USER_MANAGEMENT: [CallbackQueryHandler(AdminHandler.handle_user_management, pattern='^user_')],
-    BROADCAST: [MessageHandler(filters.TEXT, AdminHandler.handle_broadcast)],
-    SYSTEM_STATS: [CallbackQueryHandler(AdminHandler.handle_menu, pattern='^admin_')],
-    CONFIRM_ACTION: [CallbackQueryHandler(AdminHandler.confirm_action, pattern='^confirm_')],
-}
+    def get_states(self):
+        """Return conversation states using bound instance methods"""
+        # Defined after class so AdminHandler is in scope
+        return  {
+            ADMIN_MAIN: [CallbackQueryHandler(self.handle_menu, pattern='^admin_')],
+            USER_MANAGEMENT: [CallbackQueryHandler(self.handle_user_management, pattern='^user_')],
+            BROADCAST: [MessageHandler(filters.TEXT, self.handle_broadcast)],
+            SYSTEM_STATS: [CallbackQueryHandler(self.handle_menu, pattern='^admin_')],
+            CONFIRM_ACTION: [CallbackQueryHandler(self.confirm_action, pattern='^confirm_')],
+        }

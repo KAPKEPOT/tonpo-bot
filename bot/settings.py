@@ -499,13 +499,15 @@ class SettingsHandler:
         context.user_data.clear()
         return ConversationHandler.END
 
-# Defined after class so SettingsHandler is in scope
-SETTINGS_STATES = {
-    MAIN_MENU: [CallbackQueryHandler(SettingsHandler.handle_menu, pattern='^settings_')],
-    RISK_SETTINGS: [CallbackQueryHandler(SettingsHandler.handle_risk, pattern='^risk_')],
-    NOTIFICATION_SETTINGS: [CallbackQueryHandler(SettingsHandler.handle_notifications, pattern='^notify_')],
-    SYMBOL_SETTINGS: [CallbackQueryHandler(SettingsHandler.handle_symbols, pattern='^symbol_')],
-    CONNECTION_SETTINGS: [CallbackQueryHandler(SettingsHandler.handle_connection, pattern='^conn_')],
-    API_SETTINGS: [CallbackQueryHandler(SettingsHandler.handle_api, pattern='^api_')],
-    CONFIRM_UPDATE: [CallbackQueryHandler(SettingsHandler.confirm_update, pattern='^confirm_')],
-}
+    def get_states(self):
+        """Return conversation states using bound instance methods"""
+        # Defined after class so SettingsHandler is in scope
+        return  {
+            MAIN_MENU: [CallbackQueryHandler(self.handle_menu, pattern='^settings_')],
+            RISK_SETTINGS: [CallbackQueryHandler(self.handle_risk, pattern='^risk_')],
+            NOTIFICATION_SETTINGS: [CallbackQueryHandler(self.handle_notifications, pattern='^notify_')],
+            SYMBOL_SETTINGS: [CallbackQueryHandler(self.handle_symbols, pattern='^symbol_')],
+            CONNECTION_SETTINGS: [CallbackQueryHandler(self.handle_connection, pattern='^conn_')],
+            API_SETTINGS: [CallbackQueryHandler(self.handle_api, pattern='^api_')],
+            CONFIRM_UPDATE: [CallbackQueryHandler(self.confirm_update, pattern='^confirm_')],
+        }
