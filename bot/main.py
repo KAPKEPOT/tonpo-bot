@@ -6,7 +6,6 @@ from telegram.ext import (
     ApplicationBuilder, CommandHandler, CallbackQueryHandler,
     ConversationHandler, PicklePersistence
 )
-from sqlalchemy.orm import Session
 
 from config.settings import settings
 from database.database import db_manager
@@ -41,11 +40,19 @@ class Bot:
         self.task_manager = AsyncTaskManager()
         self.notification = NotificationService(self.db, None)
         self.monitoring = MonitoringService(self.db)
+        self.mt5_manager = None  # created in _post_init (needs running event loop)
 
-        # mt5_manager created in post_init so MetaApi has a running loop
-        self.mt5_manager = None
+        # Initialize all handler objects synchronously — no async needed yet
+        self.command_handlers = CommandHandlers(self.db, None)   # bot set after build
+        self.registration     = RegistrationHandler(self.db, None)
+        self.trading          = TradingHandler(self.db, None)
+        self.settings_handler = SettingsHandler(self.db, None)
+        self.admin            = AdminHandler(self.db, None)
+        self.auth_middleware  = AuthMiddleware(self.db)
+        self.rate_limiter     = RateLimitMiddleware(self.cache)
 
-        # Build PTB v20 Application
+        # Build application — handlers registered BEFORE build() via pre_init isn't
+        # available, so we build first then add_handler before initialize() is called
         persistence = PicklePersistence(filepath='bot_persistence')
         self.application = (
             ApplicationBuilder()
@@ -55,61 +62,20 @@ class Bot:
             .post_shutdown(self._post_shutdown)
             .build()
         )
+
+        # bot reference is available after build()
         self.bot = self.application.bot
-        self.notification.bot = self.bot
+        self.notification.bot        = self.bot
+        self.command_handlers.bot    = self.bot
+        self.registration.bot        = self.bot
+        self.trading.bot             = self.bot
+        self.settings_handler.bot    = self.bot
+        self.admin.bot               = self.bot
 
-    async def _post_init(self, application):
-        """Called by PTB after the event loop is running — safe to init MetaApi here"""
-        logger.info("Initializing async services...")
-
-        # MetaApi requires a running event loop
-        self.mt5_manager = MT5ConnectionManager(self.db)
-        await self.mt5_manager.start()
-
-        # Init handlers now that mt5_manager exists
-        self._init_handlers()
-
-        # Set bot commands
-        commands = [
-            BotCommand("start",     "Start the bot"),
-            BotCommand("help",      "Show help"),
-            BotCommand("register",  "Register your MT5 account"),
-            BotCommand("trade",     "Place a trade"),
-            BotCommand("calculate", "Calculate risk without trading"),
-            BotCommand("balance",   "Check account balance"),
-            BotCommand("positions", "View open positions"),
-            BotCommand("history",   "View trade history"),
-            BotCommand("settings",  "Configure settings"),
-            BotCommand("profile",   "View your profile"),
-            BotCommand("upgrade",   "Upgrade subscription"),
-        ]
-        await self.bot.set_my_commands(commands)
-
-        # Start background tasks
-        asyncio.create_task(self._background_tasks())
-
-        logger.info("Bot initialized successfully")
-
-    async def _post_shutdown(self, application):
-        """Called by PTB on shutdown"""
-        logger.info("Shutting down services...")
-        if self.mt5_manager:
-            await self.mt5_manager.stop()
-        self.db.close()
-        logger.info("Bot stopped")
-
-    def _init_handlers(self):
-        """Register all handlers"""
-        self.command_handlers = CommandHandlers(self.db, self.bot)
-        self.registration = RegistrationHandler(self.db, self.bot)
-        self.trading = TradingHandler(self.db, self.bot)
-        self.settings_handler = SettingsHandler(self.db, self.bot)
-        self.admin = AdminHandler(self.db, self.bot)
-
-        self.auth_middleware = AuthMiddleware(self.db)
-        self.rate_limiter = RateLimitMiddleware(self.cache)
+        # Error handler needs notification + monitoring (both sync-ready)
         self.error_handler = ErrorHandler(self.notification, self.monitoring)
 
+        # Register all handlers NOW — before initialize() is called by run_polling()
         self._setup_middleware()
         self._setup_handlers()
 
@@ -186,6 +152,41 @@ class Bot:
         # Callback query router
         app.add_handler(CallbackQueryHandler(self._handle_callback, pattern="^[a-z_]+:"))
 
+    async def _post_init(self, application):
+        """Called by PTB after event loop starts — safe for async init only"""
+        logger.info("Initializing async services...")
+
+        # MetaApi requires a running event loop
+        self.mt5_manager = MT5ConnectionManager(self.db)
+        await self.mt5_manager.start()
+
+        # Set bot commands
+        await self.bot.set_my_commands([
+            BotCommand("start",     "Start the bot"),
+            BotCommand("help",      "Show help"),
+            BotCommand("register",  "Register your MT5 account"),
+            BotCommand("trade",     "Place a trade"),
+            BotCommand("calculate", "Calculate risk without trading"),
+            BotCommand("balance",   "Check account balance"),
+            BotCommand("positions", "View open positions"),
+            BotCommand("history",   "View trade history"),
+            BotCommand("settings",  "Configure settings"),
+            BotCommand("profile",   "View your profile"),
+            BotCommand("upgrade",   "Upgrade subscription"),
+        ])
+
+        # Schedule background tasks — use application.create_task so PTB tracks them
+        application.create_task(self._background_tasks())
+
+        logger.info("Bot initialized successfully")
+
+    async def _post_shutdown(self, application):
+        logger.info("Shutting down services...")
+        if self.mt5_manager:
+            await self.mt5_manager.stop()
+        self.db.close()
+        logger.info("Bot stopped")
+
     async def _handle_callback(self, update, context):
         query = update.callback_query
         parts = query.data.split(':')
@@ -201,7 +202,6 @@ class Bot:
             await query.answer("Unknown action")
 
     async def _background_tasks(self):
-        """Periodic background tasks running inside PTB's event loop"""
         async def run_every(coro_fn, seconds):
             while True:
                 await asyncio.sleep(seconds)
