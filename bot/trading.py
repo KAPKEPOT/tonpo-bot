@@ -3,7 +3,7 @@ import asyncio
 import logging
 from telegram import Update
 from telegram.constants import ParseMode
-from telegram.ext import ConversationHandler, CallbackContext
+from telegram.ext import ConversationHandler, CallbackContext, MessageHandler, CallbackQueryHandler, filters
 from sqlalchemy.orm import Session
 
 from database.repositories import UserRepository
@@ -20,9 +20,9 @@ logger = logging.getLogger(__name__)
 (ENTER_TRADE, CONFIRM_TRADE, ADJUST_RISK, EXECUTING) = range(4)
 
 TRADING_STATES = {
-    ENTER_TRADE: [MessageHandler(Filters.text & ~Filters.command, TradingHandler.receive_trade)],
+    ENTER_TRADE: [MessageHandler(filters.TEXT & ~filters.COMMAND, TradingHandler.receive_trade)],
     CONFIRM_TRADE: [CallbackQueryHandler(TradingHandler.confirm_trade, pattern='^trade_')],
-    ADJUST_RISK: [MessageHandler(Filters.text, TradingHandler.adjust_risk)],
+    ADJUST_RISK: [MessageHandler(filters.TEXT, TradingHandler.adjust_risk)],
     EXECUTING: [],  # No input while executing
 }
 
