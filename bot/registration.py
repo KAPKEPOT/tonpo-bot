@@ -1,6 +1,7 @@
 # fx/bot/registration.py
 import logging
 from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
+from telegram.constants import ParseMode
 from telegram.ext import ConversationHandler, CallbackContext
 from sqlalchemy.orm import Session
 

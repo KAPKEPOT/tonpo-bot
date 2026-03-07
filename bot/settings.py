@@ -1,6 +1,7 @@
 # fx/bot/settings.py
 import logging
-from telegram import Update, ParseMode
+from telegram import Update
+from telegram.constants import ParseMode
 from telegram.ext import ConversationHandler, CallbackContext
 from sqlalchemy.orm import Session
 

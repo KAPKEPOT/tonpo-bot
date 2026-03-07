@@ -1,7 +1,8 @@
 # fx/bot/callbacks.py
 import logging
 from typing import Dict, Any, Optional
-from telegram import Update, ParseMode
+from telegram import Update
+from telegram.constants import ParseMode
 from telegram.ext import CallbackContext
 from sqlalchemy.orm import Session
 
