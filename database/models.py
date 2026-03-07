@@ -389,3 +389,13 @@ class SystemMetric(Base):
     __table_args__ = (
         Index('idx_metric_name_date', 'metric_name', 'created_at'),
     )
+
+class BotPersistenceStore(Base):
+    """Key-value store for PTB conversation/user/chat/bot state (replaces pickle file)"""
+    __tablename__ = 'bot_persistence_store'
+
+    id    = Column(Integer, primary_key=True)
+    key   = Column(String(100), nullable=False, unique=True, index=True)
+    value = Column(Text, nullable=False)
+
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
