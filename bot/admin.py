@@ -3,7 +3,7 @@ import logging
 from datetime import datetime, timedelta
 from telegram import Update
 from telegram.constants import ParseMode
-from telegram.ext import ConversationHandler, CallbackContext
+from telegram.ext import ConversationHandler, CallbackContext, CallbackQueryHandler, MessageHandler, filters
 from sqlalchemy.orm import Session
 
 from database.repositories import UserRepository, TradeRepository
@@ -16,15 +16,6 @@ logger = logging.getLogger(__name__)
 
 # Conversation states
 (ADMIN_MAIN, USER_MANAGEMENT, BROADCAST, SYSTEM_STATS, CONFIRM_ACTION) = range(5)
-
-ADMIN_STATES = {
-    ADMIN_MAIN: [CallbackQueryHandler(AdminHandler.handle_menu, pattern='^admin_')],
-    USER_MANAGEMENT: [CallbackQueryHandler(AdminHandler.handle_user_management, pattern='^user_')],
-    BROADCAST: [MessageHandler(Filters.text, AdminHandler.handle_broadcast)],
-    SYSTEM_STATS: [CallbackQueryHandler(AdminHandler.handle_stats, pattern='^stats_')],
-    CONFIRM_ACTION: [CallbackQueryHandler(AdminHandler.confirm_action, pattern='^confirm_')],
-}
-
 
 class AdminHandler:
     """
@@ -406,3 +397,12 @@ class AdminHandler:
         # Start broadcast
         asyncio.create_task(self._execute_broadcast(message))
         update.message.reply_text("📢 Broadcast started.")
+
+# Defined after class so AdminHandler is in scope
+ADMIN_STATES = {
+    ADMIN_MAIN: [CallbackQueryHandler(AdminHandler.handle_menu, pattern='^admin_')],
+    USER_MANAGEMENT: [CallbackQueryHandler(AdminHandler.handle_user_management, pattern='^user_')],
+    BROADCAST: [MessageHandler(filters.TEXT, AdminHandler.handle_broadcast)],
+    SYSTEM_STATS: [CallbackQueryHandler(AdminHandler.handle_stats, pattern='^stats_')],
+    CONFIRM_ACTION: [CallbackQueryHandler(AdminHandler.confirm_action, pattern='^confirm_')],
+}
