@@ -2,7 +2,7 @@
 import logging
 from telegram import Update
 from telegram.constants import ParseMode
-from telegram.ext import ConversationHandler, CallbackContext
+from telegram.ext import ConversationHandler, CallbackContext, CallbackQueryHandler, MessageHandler, filters
 from sqlalchemy.orm import Session
 
 from database.repositories import UserRepository, SettingsRepository
@@ -17,17 +17,6 @@ logger = logging.getLogger(__name__)
 # Conversation states
 (MAIN_MENU, RISK_SETTINGS, NOTIFICATION_SETTINGS, SYMBOL_SETTINGS,
  CONNECTION_SETTINGS, API_SETTINGS, CONFIRM_UPDATE) = range(7)
-
-SETTINGS_STATES = {
-    MAIN_MENU: [CallbackQueryHandler(SettingsHandler.handle_menu, pattern='^settings_')],
-    RISK_SETTINGS: [CallbackQueryHandler(SettingsHandler.handle_risk, pattern='^risk_')],
-    NOTIFICATION_SETTINGS: [CallbackQueryHandler(SettingsHandler.handle_notifications, pattern='^notify_')],
-    SYMBOL_SETTINGS: [CallbackQueryHandler(SettingsHandler.handle_symbols, pattern='^symbol_')],
-    CONNECTION_SETTINGS: [CallbackQueryHandler(SettingsHandler.handle_connection, pattern='^conn_')],
-    API_SETTINGS: [CallbackQueryHandler(SettingsHandler.handle_api, pattern='^api_')],
-    CONFIRM_UPDATE: [CallbackQueryHandler(SettingsHandler.confirm_update, pattern='^confirm_')],
-}
-
 
 class SettingsHandler:
     """
@@ -509,3 +498,14 @@ class SettingsHandler:
         update.message.reply_text("⚙️ Settings closed.")
         context.user_data.clear()
         return ConversationHandler.END
+
+# Defined after class so SettingsHandler is in scope
+SETTINGS_STATES = {
+    MAIN_MENU: [CallbackQueryHandler(SettingsHandler.handle_menu, pattern='^settings_')],
+    RISK_SETTINGS: [CallbackQueryHandler(SettingsHandler.handle_risk, pattern='^risk_')],
+    NOTIFICATION_SETTINGS: [CallbackQueryHandler(SettingsHandler.handle_notifications, pattern='^notify_')],
+    SYMBOL_SETTINGS: [CallbackQueryHandler(SettingsHandler.handle_symbols, pattern='^symbol_')],
+    CONNECTION_SETTINGS: [CallbackQueryHandler(SettingsHandler.handle_connection, pattern='^conn_')],
+    API_SETTINGS: [CallbackQueryHandler(SettingsHandler.handle_api, pattern='^api_')],
+    CONFIRM_UPDATE: [CallbackQueryHandler(SettingsHandler.confirm_update, pattern='^confirm_')],
+}
