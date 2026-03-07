@@ -10,6 +10,7 @@ from database.repositories import UserRepository, TradeRepository
 from services.notification import NotificationService
 from services.analytics import AnalyticsService
 from services.monitoring import MonitoringService
+from config.settings import settings
 from bot.keyboards import get_admin_keyboard, get_admin_user_keyboard
 
 logger = logging.getLogger(__name__)
