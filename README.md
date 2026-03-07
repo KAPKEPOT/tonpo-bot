@@ -12,7 +12,7 @@ cd fx-signal-copier
 
 ##### 2. Create virtual environment
 ```
-python -m venv fx
+python3 -m venv fx
 ```
 ```
 source fx/bin/activate
@@ -57,7 +57,7 @@ make run
 
 **or**
 ```
-python main.py
+python3 main.py
 ```
 
 #### Option B: Docker Deployment
