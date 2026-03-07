@@ -1,0 +1,18 @@
+-r requirements.txt
+
+# Code formatting
+black==25.1.0
+isort==6.0.1
+
+# Linting & static analysis
+flake8==7.1.1
+pylint==3.3.0
+mypy==1.11.2
+
+# Git hooks
+pre-commit==4.0.1
+
+# Testing
+pytest-mock==3.14.0
+pytest-asyncio==0.24.0
+coverage==7.6.0

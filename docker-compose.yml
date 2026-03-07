@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: fx_signal_copier
+      POSTGRES_USER: fxuser
+      POSTGRES_PASSWORD: fxpassword
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fxuser"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  bot:
+    build: .
+    environment:
+      DATABASE_URL: postgresql://fxuser:fxpassword@postgres:5432/fx_signal_copier
+      REDIS_URL: redis://redis:6379/0
+      BOT_TOKEN: ${BOT_TOKEN}
+      METAAPI_TOKEN: ${METAAPI_TOKEN}
+      ADMIN_USER_IDS: ${ADMIN_USER_IDS}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+
+  celery-worker:
+    build: .
+    command: celery -A services.queue.celery_app worker --loglevel=info
+    environment:
+      DATABASE_URL: postgresql://fxuser:fxpassword@postgres:5432/fx_signal_copier
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      - redis
+      - postgres
+    restart: unless-stopped
+
+  celery-beat:
+    build: .
+    command: celery -A services.queue.celery_app beat --loglevel=info
+    environment:
+      DATABASE_URL: postgresql://fxuser:fxpassword@postgres:5432/fx_signal_copier
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      - redis
+      - postgres
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
