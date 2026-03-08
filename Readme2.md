@@ -1,4 +1,4 @@
-FX Signal Copier Bot 📈🤖
+## FX Signal Copier Bot 📈🤖
 
 https://img.shields.io/badge/python-3.9%2B-blue
 https://img.shields.io/badge/Telegram-Bot-26A5E4?logo=telegram
@@ -8,88 +8,110 @@ https://img.shields.io/badge/docker-ready-2496ED?logo=docker
 
 A powerful Telegram bot that automatically executes forex trades on MetaTrader 5 accounts. Users can send trading signals via Telegram, and the bot calculates position sizes based on risk management rules and executes trades automatically.
 
-✨ Features
+#### ✨ Features
 
-🎯 Core Functionality
+**🎯 Core Functionality**
 
-· Automated Trade Execution - Send signals via Telegram, bot executes on MT5
-· Multi-User Support - Each user connects their own MT5 account
-· Smart Risk Management - Automatic position sizing based on account balance
-· Multiple Take Profits - Support for up to 2 TP levels
-· All Order Types - Market, Limit, and Stop orders
+· **Automated Trade Execution** - Send signals via Telegram, bot executes on MT5
+· **Multi-User Support** - Each user connects their own MT5 account
+· **Smart Risk Management** - Automatic position sizing based on account balance
+· **Multiple Take Profits** - Support for up to 2 TP levels
+· **All Order Types** - Market, Limit, and Stop orders
 
-🔐 Security
+**🔐 Security**
 
-· Encrypted Credentials - User passwords securely encrypted
-· Telegram Authentication - Only authorized users can access
-· Rate Limiting - Prevents abuse and API overuse
+· **Encrypted Credentials** - User passwords securely encrypted
+· **Telegram Authentication** - Only authorized users can access
+· **Rate Limiting** - Prevents abuse and API overuse
 
-📊 User Features
+#### 📊 User Features
 
-· Risk Calculator - Preview trade risk before executing
-· Account Dashboard - Check balance, open positions, trade history
-· Customizable Settings - Per-user risk preferences, symbol filters
-· Real-time Notifications - Trade confirmations and alerts
+· **Risk Calculator** - Preview trade risk before executing
+· **Account Dashboard** - Check balance, open positions, trade history
+· **Customizable Settings** - Per-user risk preferences, symbol filters
+· **Real-time Notifications** - Trade confirmations and alerts
 
-👑 Admin Features
+#### 👑 Admin Features
 
-· User Management - View, ban, or promote users
-· Broadcast Messages - Send announcements to all users
-· System Monitoring - Track performance and errors
-· Usage Statistics - View platform analytics
+· **User Management** - View, ban, or promote users
+· **Broadcast Messages** - Send announcements to all users
+· **System Monitoring** - Track performance and errors
+· **Usage Statistics** - View platform analytics
 
-💎 Subscription Plans
+##### 💎 Subscription Plans
 
-· Free Tier - 10 trades/day, basic features
-· Pro Tier - 50 trades/day, multiple TPs
-· Enterprise - Unlimited trades, API access
+· **Free Tier** - 10 trades/day, basic features
+· **Pro Tier** - 50 trades/day, multiple TPs
+· **Enterprise** - Unlimited trades, API access
 
-🚀 Quick Start
+##### 🚀 Quick Start
 
-Prerequisites
+**Prerequisites**
 
 · Python 3.9+
 · PostgreSQL
 · Redis
-· MetaAPI account (https://app.metaapi.cloud)
+· [MetaAPI account] (https://app.metaapi.cloud)
 · Telegram Bot Token (from @BotFather)
 
-One-Line Setup
+**One-Line Setup**
 
-```bash
-# Clone repository
+***bash***
+ **Clone repository**
+ ```
 git clone https://github.com/yourusername/fx-signal-copier.git
 cd fx-signal-copier
+```
 
-# Run setup script
+**Run setup script**
+```
 chmod +x scripts/quick_start.sh
 ./scripts/quick_start.sh
 ```
 
-Manual Installation
+#### Manual Installation
 
-1. Clone and setup environment
+**1. Clone and setup environment**
 
-```bash
+***bash***
+```
 git clone https://github.com/yourusername/fx-signal-copier.git
 cd fx-signal-copier
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+```
+```
+python -m venv fx
+```
+```
+source venv/bin/activate
+```
+***On Windows:***
+```
+fx\Scripts\activate
+```
+```
 pip install -r requirements.txt
 ```
 
 1. Configure environment variables
 
-```bash
-cp .env.example .env
-nano .env  # Add your credentials
+***bash***
 ```
+cp .env.example .env
+```
+ Add your credentials
+```
+nano .env  
+```
+ *Add your credentials*
 
-1. Start services with Docker
+**1. Start services with Docker**
 
-```bash
+***bash***
+```
 docker-compose up -d postgres redis
 alembic upgrade head
+```
+```
 python main.py
 ```
 
@@ -113,33 +135,34 @@ ENCRYPTION_KEY=your_32_byte_base64_key
 JWT_SECRET=your_jwt_secret
 ```
 
-🤖 Bot Commands
+#### 🤖 Bot Commands
 
-User Commands
+**User Commands**
 
-Command Description
-/start Welcome message
-/help Show help and examples
-/register Connect your MT5 account
-/trade Place a new trade
-/calculate Calculate risk without trading
-/balance Check account balance
-/positions View open positions
-/history View trade history
-/settings Configure preferences
-/profile View your profile
-/upgrade Upgrade subscription
+*Command Description*
+|Command|Description|
+|:------|-----------:|
+|/start |Welcome message|
+|/help |Show help and examples|
+|/register |Connect your MT5 account|
+|/trade |Place a new trade|
+|/calculate| Calculate risk without trading|
+|/balance |Check account balance|
+|/positions| View open positions|
+|/history| View trade history|
+|/settings |Configure preferences|
+|/profile |View your profile|
+|/upgrade| Upgrade subscription|
 
 ###### Admin Commands
 
-Command Description
-|<-----|-------->|
-/admin Admin dashboard
-|------|-------------|
-/stats System statistics
+|Command |Description|
+|:-----|--------:|
+|/admin |Admin dashboard|
+|/stats |System statistics|
 |-------|-------------|
-/broadcast Send message to all users
-|---------|----------|
+|/broadcast |Send message to all users|
+
 ##### 📊 Trade Signal Format
 
 **Standard Format**
@@ -170,17 +193,22 @@ TP1 1.10500
 TP2 1.11000
 ```
 
-🐳 Docker Deployment
+#### 🐳 Docker Deployment
 
-Production Setup
+##### Production Setup
 
-# Build and start all services
+ **Build and start all services**
+```
 docker-compose up -d
+```
 
-# View logs
+ **View logs**
+```
 docker-compose logs -f
+```
 
-# Stop services
+ **Stop services**
+```
 docker-compose down
 ```
 
@@ -236,9 +264,10 @@ make format
 
 **bash**
  **Create new migration**
- ```
+```
 alembic revision --autogenerate -m "description"
 ```
+
  **Apply migrations**
  ```
 alembic upgrade head
@@ -250,18 +279,18 @@ alembic downgrade -1
 
 #### **📈 Performance**
 
-· Response Time: < 2 seconds for trade execution
-· Concurrent Users: Supports 1000+ users
-· Uptime: 99.9% with proper deployment
-· Rate Limits: Configurable per user tier
+· **Response Time:** < 2 seconds for trade execution
+· **Concurrent Users:** Supports 1000+ users
+· **Uptime:** 99.9% with proper deployment
+· **Rate Limits:** Configurable per user tier
 
 #### **🔒 Security**
 
-· Password Encryption: AES-256 encryption for MT5 passwords
-· JWT Tokens: For API authentication
-· Rate Limiting: Prevents brute force attacks
-· Input Validation: All user input sanitized
-· SQL Injection: Protected by SQLAlchemy ORM
+· **Password Encryption:** AES-256 encryption for MT5 passwords
+· **JWT Tokens:** For API authentication
+· **Rate Limiting:** Prevents brute force attacks
+· **Input Validation:** All user input sanitized
+· **SQL Injection:** Protected by SQLAlchemy ORM
 
 #### **🚦 Error Handling**
 
@@ -302,7 +331,7 @@ Distributed under the MIT License. See LICENSE for more information.
 
 📞 Support
 
-· Telegram: @FXSignalCopier
+· Telegram: [FX-SIGNAL-COPIER](https://t.me/fxsignalcopier1bot)
 · Email: support@fxsignalcopier.com
 · Issues: GitHub Issues
 
@@ -315,4 +344,4 @@ Distributed under the MIT License. See LICENSE for more information.
 
 **⭐ Star History**
 
-https://api.star-history.com/svg?repos=yourusername/fx-signal-copier&type=Date
+https://api.star-history.com/svg?repos=KAPKEPOT/fx-signal-copier&type=Date
