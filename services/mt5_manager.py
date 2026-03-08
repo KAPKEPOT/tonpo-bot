@@ -252,22 +252,33 @@ class MT5ConnectionManager:
             logger.info(f"Found existing account for user {user_id}")
             return account
         except Exception:
-            # Create new account
-            logger.info(f"Creating new account for user {user_id}")
-            
-            account = await self.api.metatrader_account_api.create_account({
-                'name': f"User_{user_id}",
-                'type': 'cloud',
-                'login': account_id,
-                'password': password,
-                'server': server,
-                'platform': 'mt5',
-                'magic': 123456,
-                'application': 'FX Signal Copier'
-            })
-            
-            return account
-    
+            if "404" in str(e) or "not found" in str(e).lower():
+            	
+            	# Account doesn't exist, create new one
+            	logger.info(f"Creating new account for user {user_id}")
+            	
+            	try:
+            		account = await self.api.metatrader_account_api.create_account({
+            		    'name': f"User_{user_id}",
+            		    'type': 'cloud',
+            		    'login': account_id,
+            		    'password': password,
+            		    'server': server,
+            		    'platform': 'mt5',
+            		    'magic': 123456,
+            		    'application': 'FX Signal Copier'
+            		})
+            		return account
+            	except Exception as create_error:
+            		if "top up your account" in str(create_error).lower():
+            			logger.error(f"MetaAPI account needs funding: {create_error}")
+            			raise Exception("MetaAPI service requires payment. Please contact support.")
+            		else:
+            			raise
+            else:
+            	# Re-raise other errors
+            	raise
+            	
     async def get_connection(self, user_id: int):
         """
         Get a connection for a user from the pool
