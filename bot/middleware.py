@@ -1,6 +1,7 @@
 # fx/bot/middleware.py
 import logging
 import time
+from datetime import datetime, timezone
 from functools import wraps
 from typing import Callable, Dict, Any, Optional
 from telegram import Update
@@ -60,7 +61,7 @@ class AuthMiddleware:
                 return
             
             # Update last active timestamp
-            user.last_active = datetime.utcnow()
+            user.last_active = datetime.now(timezone.utc)
             self.db.commit()
             
             # Call the original handler
