@@ -1,10 +1,14 @@
 ## FX Signal Copier Bot 📈🤖
-
-https://img.shields.io/badge/python-3.9%2B-blue
-https://img.shields.io/badge/Telegram-Bot-26A5E4?logo=telegram
-https://img.shields.io/badge/MetaTrader-5-FF4B4B
-https://img.shields.io/badge/license-MIT-green
-https://img.shields.io/badge/docker-ready-2496ED?logo=docker
+![python3]
+(https://img.shields.io/badge/python-3.9%2B-blue)
+![Telegram-Bot]
+(https://img.shields.io/badge/Telegram-Bot-26A5E4?logo=telegram)
+![MT5]
+(https://img.shields.io/badge/MetaTrader-5-FF4B4B)
+![MIT]
+(https://img.shields.io/badge/license-MIT-green)
+![docker]
+(https://img.shields.io/badge/docker-ready-2496ED?logo=docker)
 
 A powerful Telegram bot that automatically executes forex trades on MetaTrader 5 accounts. Users can send trading signals via Telegram, and the bot calculates position sizes based on risk management rules and executes trades automatically.
 
@@ -13,35 +17,49 @@ A powerful Telegram bot that automatically executes forex trades on MetaTrader 5
 **🎯 Core Functionality**
 
 · **Automated Trade Execution** - Send signals via Telegram, bot executes on MT5
+
 · **Multi-User Support** - Each user connects their own MT5 account
+
 · **Smart Risk Management** - Automatic position sizing based on account balance
+
 · **Multiple Take Profits** - Support for up to 2 TP levels
+
 · **All Order Types** - Market, Limit, and Stop orders
 
 **🔐 Security**
 
 · **Encrypted Credentials** - User passwords securely encrypted
+
 · **Telegram Authentication** - Only authorized users can access
+
 · **Rate Limiting** - Prevents abuse and API overuse
 
 #### 📊 User Features
 
 · **Risk Calculator** - Preview trade risk before executing
+
 · **Account Dashboard** - Check balance, open positions, trade history
+
 · **Customizable Settings** - Per-user risk preferences, symbol filters
+
 · **Real-time Notifications** - Trade confirmations and alerts
 
 #### 👑 Admin Features
 
 · **User Management** - View, ban, or promote users
+
 · **Broadcast Messages** - Send announcements to all users
+
 · **System Monitoring** - Track performance and errors
+
 · **Usage Statistics** - View platform analytics
 
 ##### 💎 Subscription Plans
 
 · **Free Tier** - 10 trades/day, basic features
+
 · **Pro Tier** - 50 trades/day, multiple TPs
+
 · **Enterprise** - Unlimited trades, API access
 
 ##### 🚀 Quick Start
@@ -59,7 +77,7 @@ A powerful Telegram bot that automatically executes forex trades on MetaTrader 5
 ***bash***
  **Clone repository**
  ```
-git clone https://github.com/yourusername/fx-signal-copier.git
+git clone https://github.com/KAPKEPOT/fx-signal-copier.git
 cd fx-signal-copier
 ```
 
@@ -141,7 +159,7 @@ JWT_SECRET=your_jwt_secret
 
 *Command Description*
 |Command|Description|
-|:------|-----------:|
+|------|-----------|
 |/start |Welcome message|
 |/help |Show help and examples|
 |/register |Connect your MT5 account|
@@ -157,7 +175,7 @@ JWT_SECRET=your_jwt_secret
 ###### Admin Commands
 
 |Command |Description|
-|:-----|--------:|
+|:-----|--------|
 |/admin |Admin dashboard|
 |/stats |System statistics|
 |-------|-------------|
