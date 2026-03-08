@@ -215,11 +215,52 @@ class Bot:
 
 
     async def _post_shutdown(self, application):
+        """Properly shut down all services and background tasks"""
         logger.info("Shutting down services...")
+       
+        # Cancel all background tasks first
+        logger.info("Cancelling background tasks...")
+        
+        # Get all running tasks (excluding the current one)
+        tasks = [t for t in asyncio.all_tasks() 
+             if t is not asyncio.current_task()]
+        
+        if tasks:
+        	# Cancel all tasks
+        	for task in tasks:
+        		task.cancel()
+        	
+        	# Wait for tasks to complete with timeout
+        	logger.info(f"Waiting for {len(tasks)} tasks to complete...")
+        	try:
+        		await asyncio.wait_for(asyncio.gather(*tasks, return_exceptions=True), timeout=5.0)
+        	except asyncio.TimeoutError:
+        		logger.warning(f"Some tasks did not complete within timeout")
+        	except Exception as e:
+        		logger.error(f"Error during task cleanup: {e}")
+        
+        # Stop MT5 connection manager
+        
         if self.mt5_manager:
-            await self.mt5_manager.stop()
-        self.db.close()
-        logger.info("Bot stopped")
+        	logger.info("Stopping MT5 Connection Manager...")
+        	try:
+        		await asyncio.wait_for(self.mt5_manager.stop(), timeout=5.0)
+        	except asyncio.TimeoutError:
+        		logger.warning("MT5 manager stop timed out")
+        	except Exception as e:
+        		logger.error(f"Error stopping MT5 manager: {e}")
+        
+        # Close database session
+        if self.db:
+        	logger.info("Closing database connection...")
+        	self.db.close()
+        
+        # Cancel any remaining asyncio tasks (for APScheduler)
+        for task in asyncio.all_tasks():
+        	if not task.done() and task is not asyncio.current_task():
+        		task.cancel()
+        
+        logger.info("Bot stopped successfully")
 
     async def _handle_callback(self, update, context):
         query = update.callback_query
@@ -236,29 +277,58 @@ class Bot:
             await query.answer("Unknown action")
 
     async def _background_tasks(self):
+        """Run background tasks with proper cancellation handling"""
         async def run_every(coro_fn, seconds):
-            while True:
-                await asyncio.sleep(seconds)
-                try:
-                    await coro_fn()
-                except Exception as e:
-                    logger.error(f"Background task error: {e}")
+        	try:
+        		while True:
+        			try:
+        				await asyncio.sleep(seconds)
+        				await coro_fn()
+        			except asyncio.CancelledError:
+        				logger.info(f"Background task {coro_fn.__name__} cancelled")
+        				break
+        			except Exception as e:
+        				logger.error(f"Background task error in {coro_fn.__name__}: {e}")
+        				await asyncio.sleep(5)  # Prevent tight loop on error
+        	except asyncio.CancelledError:
+        		logger.info(f"run_every task cancelled")
+        		raise
 
         async def process_expired():
-            from services.subscription import SubscriptionService
-            sub_service = SubscriptionService(self.db)
-            count = sub_service.process_expired()
-            if count > 0:
-                logger.info(f"Processed {count} expired subscriptions")
+            try:
+            	from services.subscription import SubscriptionService
+            	sub_service = SubscriptionService(self.db)
+            	count = sub_service.process_expired()
+            	if count > 0:
+            		logger.info(f"Processed {count} expired subscriptions")
+            except Exception as e:
+            	logger.error(f"Error processing expired subscriptions: {e}")
 
         async def collect_metrics():
-            self.monitoring.collect_metrics()
-
-        await asyncio.gather(
-            run_every(self._check_connections, 300),
-            run_every(collect_metrics, 900),
-            run_every(process_expired, 86400),
-        )
+        	try:
+        		self.monitoring.collect_metrics()
+        	except Exception as e:
+        		logger.error(f"Error collecting metrics: {e}")
+        
+        # Create tasks with names for better tracking
+        tasks = [
+            asyncio.create_task(run_every(self._check_connections, 300), name="check_connections"),
+            asyncio.create_task(run_every(collect_metrics, 900), name="collect_metrics"),
+            asyncio.create_task(run_every(process_expired, 86400), name="process_expired"),
+        ]
+        
+        try:
+        	# Wait for all tasks, but allow cancellation
+        	await asyncio.gather(*tasks)
+        except asyncio.CancelledError:
+        	logger.info("Background tasks cancelled, cleaning up...")
+        	# Cancel all tasks properly
+        	for task in tasks:
+        		if not task.done():
+        			task.cancel()
+        	# Wait for tasks to complete cancellation
+        	await asyncio.gather(*tasks, return_exceptions=True)
+        	raise
 
     async def _check_connections(self):
         from database.repositories import UserRepository
