@@ -124,6 +124,7 @@ alembic upgrade head
   
 
 **9. Run the bot**
+
 ```
 make run
 ```
