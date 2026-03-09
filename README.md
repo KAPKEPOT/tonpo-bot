@@ -54,14 +54,14 @@
 - MetaAPI
 - Telegram Bot Token (from @BotFather)
 
-#### **Setup Instructions**
+### **Setup Instructions**
 
 ##### Manual Installation
 
 **1. Clone and setup environment**
 
 ```
-git clone https://github.com/yourusername/fx-signal-copier.git
+git clone https://github.com/KAPKEPOT/fx-signal-copier.git
 cd fx-signal-copier
 ```
 **2. Create virtual environment**
