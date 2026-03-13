@@ -64,7 +64,7 @@ class TradeExecutor:
         try:
             # Step 1: Parse signal
             logger.info(f"Parsing signal for user {user_id}")
-            signal = self.signal_processor.parse(signal_text)
+            signal = self.signal_processor.process(signal_text)
             
             # Step 2: Check subscription limits
             can_trade, limit_info = self.sub_service.check_trade_limit(user_id)
@@ -264,6 +264,8 @@ class TradeExecutor:
                 	)
                 	self.db.add(failed_trade)
                 	self.db.commit()
+            except Exception as db_error:
+            	logger.error(f"Failed to save failed trade: {db_error}")
             except:
                 pass
             
