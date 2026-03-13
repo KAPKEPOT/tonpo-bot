@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from core.models import TradeSignal, CalculatedTrade
 from services.signal_processor import SignalProcessor
-from core.parser import SignalParser
+#from core.parser import SignalParser
 from services.mt5_manager import MT5ConnectionManager
 from services.risk_service import RiskService
 from services.subscription import SubscriptionService
@@ -24,17 +24,13 @@ class TradeExecutionError(Exception):
 
 
 class TradeExecutor:
-    """
-    Orchestrates the entire trade execution process
-    """
-    
     def __init__(self, db_session: Session, bot=None, mt5_manager=None):
         self.db = db_session
         self.bot = bot
         
         # Initialize services
         self.signal_processor = SignalProcessor()
-        self.signal_processor = SignalParser()
+        #self.signal_processor = SignalParser()
         
         self.risk_service = RiskService()
         self.sub_service = SubscriptionService(db_session)
