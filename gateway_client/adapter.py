@@ -8,6 +8,7 @@ from typing import Optional, Dict, Any, List
 from contextlib import asynccontextmanager
 
 from .client import GatewayClient, GatewayConfig, AccountInfo, Position, OrderResult
+from config.settings import settings
 
 logger = logging.getLogger(__name__)
 
@@ -174,6 +175,15 @@ class GatewayManager:
         self._ready_error: Optional[str] = None
         
         logger.info("Gateway manager initialized")
+        
+        gateway_manager = GatewayManager(GatewayConfig(
+            host=settings.GATEWAY_HOST,
+            port=settings.GATEWAY_PORT,
+            use_ssl=settings.GATEWAY_USE_SSL,
+            api_key_header=settings.GATEWAY_API_KEY_HEADER,
+            connect_timeout=settings.GATEWAY_CONNECT_TIMEOUT,
+            request_timeout=settings.GATEWAY_REQUEST_TIMEOUT
+        ))
     
     async def start(self):
         """Start the gateway manager"""
