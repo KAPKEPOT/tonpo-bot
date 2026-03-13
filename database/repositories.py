@@ -334,18 +334,34 @@ class NotificationRepository(BaseRepository):
     """Repository for Notification operations"""
     
     def create_notification(self, user_id: int, title: str, message: str, 
-                           type: str = 'info', data: dict = None) -> Notification:
+                       type: str = 'info', data: dict = None) -> Optional[Notification]:
         """Create a new notification"""
-        notification = Notification(
-            user_id=user_id,
-            title=title,
-            message=message,
-            type=type,
-            data=data or {}
-        )
-        self.session.add(notification)
-        self._safe_commit()
-        return notification
+        from .models import User
+        user_exists = self.session.query(User).filter(User.id == user_id).first()
+        if not user_exists:
+        	# Try with telegram_id
+        	user_exists = self.session.query(User).filter(User.telegram_id == user_id).first()
+        	if user_exists:
+        		user_id = user_exists.id
+        	else:
+        		logger.warning(f"Cannot create notification: User {user_id} not found")
+        		return None
+        	
+        try:
+        	notification = Notification(
+        	    user_id=user_id,
+        	    title=title,
+        	    message=message,
+        	    type=type,
+        	    data=data or {}
+        	)
+        	self.session.add(notification)
+        	self._safe_commit()
+        	return notification        	
+        except Exception as e:
+        	logger.error(f"Failed to create notification: {e}")
+        	self.session.rollback()
+        	return None
     
     def get_unread(self, user_id: int) -> List[Notification]:
         """Get unread notifications for user"""
