@@ -6,6 +6,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import field_validator, Field
 from dotenv import load_dotenv
 
+from gateway_client import GatewayConfig
+
 # Load environment variables from .env file
 load_dotenv()
 
@@ -56,18 +58,17 @@ class Settings(BaseSettings):
         gt=0
     )
     
-    # Optional: Add a computed property for the full config dict
     @property
-    def gateway_config(self) -> Dict[str, Any]:
-        """Get gateway configuration as a dictionary"""
-        return {
-            'host': self.GATEWAY_HOST,
-            'port': self.GATEWAY_PORT,
-            'use_ssl': self.GATEWAY_USE_SSL,
-            'api_key_header': self.GATEWAY_API_KEY_HEADER,
-            'connect_timeout': self.GATEWAY_CONNECT_TIMEOUT,
-            'request_timeout': self.GATEWAY_REQUEST_TIMEOUT,
-        }
+    def gateway_config(self) -> GatewayConfig:
+        """Get gateway configuration as a GatewayConfig object"""
+        return GatewayConfig(
+            host=self.GATEWAY_HOST,
+            port=self.GATEWAY_PORT,
+            use_ssl=self.GATEWAY_USE_SSL,
+            api_key_header=self.GATEWAY_API_KEY_HEADER,
+            connect_timeout=self.GATEWAY_CONNECT_TIMEOUT,
+            request_timeout=self.GATEWAY_REQUEST_TIMEOUT,
+        )
     
     # MetaAPI Configuration
     METAAPI_TOKEN: str = Field(..., validation_alias='METAAPI_TOKEN')
