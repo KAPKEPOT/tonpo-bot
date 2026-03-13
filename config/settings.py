@@ -6,8 +6,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import field_validator, Field
 from dotenv import load_dotenv
 
-from gateway_client import GatewayConfig
-
 # Load environment variables from .env file
 load_dotenv()
 
@@ -61,6 +59,7 @@ class Settings(BaseSettings):
     @property
     def gateway_config(self) -> GatewayConfig:
         """Get gateway configuration as a GatewayConfig object"""
+        from gateway_client import GatewayConfig
         return GatewayConfig(
             host=self.GATEWAY_HOST,
             port=self.GATEWAY_PORT,
