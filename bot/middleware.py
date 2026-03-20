@@ -108,12 +108,28 @@ class RateLimitMiddleware:
             'default': (30, 60)  # Default 30 per minute
         }
     
-    def check_rate_limit(self, user_id: int, action: str = 'default') -> tuple[bool, Optional[int]]:
+    def check_rate_limit(self, user_id: int, action: str = 'default') -> tuple:
         """
-        Check if user has exceeded rate limit
+        Check if user has exceeded rate limit.
+        Uses plan-specific
+        Uses plan-specific rate_limit_per_second if available.
         Returns (is_allowed, retry_after_seconds)
         """
         limit, period = self.default_limits.get(action, self.default_limits['default'])
+        
+        # Try to get plan-specific multiplier
+        try:
+        	from services.subscription import SubscriptionService
+        	from database.database import db_manager
+        	sub_service = SubscriptionService(db_manager.get_session())
+        	plan = sub_service.get_user_plan(user_id)
+        	if plan and plan.rate_limit_per_second:
+        		# Scale limits by plan's rate_limit_per_second relative to default (1)
+        		multiplier = plan.rate_limit_per_second
+        		limit = limit * multiplier
+        		
+        except Exception:
+        	pass  # Fall back to default limits
         
         # Create rate limit key
         key = CacheKeys.rate_limit(user_id, action)

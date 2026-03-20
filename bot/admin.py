@@ -38,11 +38,7 @@ class AdminHandler:
     
     async def dashboard(self, update: Update, context: CallbackContext) -> int:
         """Show admin dashboard"""
-        user_id = update.effective_user.id
-        
-        if not self.is_admin(user_id):
-            await update.message.reply_text("❌ Unauthorized access.")
-            return ConversationHandler.END
+        """Show admin dashboard (admin check done by wrap_admin middleware)"""
         
         # Get quick stats
         total_users = self.user_repo.get_active_users().__len__()
@@ -72,6 +68,13 @@ class AdminHandler:
         )
         
         return ADMIN_MAIN
+        
+    async def cancel(self, update: Update, context: CallbackContext) -> int:
+    	"""Cancel admin conversation"""
+    	await update.message.reply_text("👑 Admin session ended.")
+    	context.user_data.pop('pending_action', None)
+    	context.user_data.pop('selected_user', None)
+    	return ConversationHandler.END
     
     async def handle_menu(self, update: Update, context: CallbackContext) -> int:
         """Handle admin menu selections"""
@@ -147,10 +150,17 @@ class AdminHandler:
             return self._show_user_management(update, context)
         
         elif action.startswith('make_admin_'):
-            user_id = int(action.replace('make_admin_', ''))
-            # Add to admin list (would need to update settings)
-            await query.edit_message_text(f"✅ User {user_id} promoted to admin.")
-            return self._show_user_management(update, context)
+            target_id = int(action.replace('make_admin_', ''))
+            current_ids = ','.join(str(x) for x in self.admin_ids)
+            await query.edit_message_text(
+                f"⚠️ *Admin promotion requires a config change.*\n\n"
+                f"Add user `{target_id}` to `ADMIN_USER_IDS` in your `.env` file "
+                f"and restart the bot.\n\n"
+                f"Updated value:\n"
+                f"`ADMIN_USER_IDS={current_ids},{target_id}`",
+                parse_mode=ParseMode.MARKDOWN
+            )
+            return USER_MANAGEMENT
     
     async def _show_user_details(self, update: Update, context: CallbackContext) -> int:
         """Show detailed user information"""
@@ -362,12 +372,6 @@ class AdminHandler:
     
     async def stats(self, update: Update, context: CallbackContext):
         """Quick stats command"""
-        user_id = update.effective_user.id
-        
-        if not self.is_admin(user_id):
-            await update.message.reply_text("❌ Unauthorized access.")
-            return
-        
         system_stats = self.monitoring.get_performance_report()
         
         quick_stats = (
@@ -383,12 +387,6 @@ class AdminHandler:
     
     async def broadcast(self, update: Update, context: CallbackContext):
         """Quick broadcast command"""
-        user_id = update.effective_user.id
-        
-        if not self.is_admin(user_id):
-            await update.message.reply_text("❌ Unauthorized access.")
-            return
-        
         # Check if message provided
         if not context.args:
             await update.message.reply_text("Usage: /broadcast <message>")

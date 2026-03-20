@@ -31,6 +31,7 @@ class CommandHandlers:
         """Handle /start command"""
         user = update.effective_user
         db_user = self.user_repo.get_by_telegram_id(user.id)
+        is_admin = user.id in settings.ADMIN_USER_IDS
         
         if db_user:
             message = (
@@ -43,6 +44,15 @@ class CommandHandlers:
                 "• /positions - View open positions\n"
                 "• /settings - Configure settings"
             )
+            
+            if is_admin:
+            	message += (
+            	    "\n\n*👑 Admin Commands:*\n"
+            	    "• /admin - Admin dashboard\n"
+            	    "• /stats - Quick system stats\n"
+            	    "• /broadcast - Send message to all users"
+            	)
+            	
         else:
             message = (
                 "🚀 *Welcome to FX Signal Copier!*\n\n"
@@ -51,6 +61,12 @@ class CommandHandlers:
                 "To get started, use /register to connect your MT5 account.\n"
                 "Use /help to see all commands."
             )
+            
+            if is_admin:
+            	message += (
+            	    "\n\n*👑 You have admin access.*\n"
+            	    "Use /admin for the dashboard (no registration needed)."
+            	)
         
         await update.message.reply_text(message, parse_mode=ParseMode.MARKDOWN)
     
@@ -97,8 +113,17 @@ class CommandHandlers:
             "```"
         )
         
+        # Add admin commands if user is admin
+        if update.effective_user.id in settings.ADMIN_USER_IDS:
+            help_text += (
+                "\n*👑 Admin Commands:*\n"
+                "/admin - Admin dashboard\n"
+                "/stats - Quick system stats\n"
+                "/broadcast <message> - Broadcast to all users\n"
+            )
+        
         await update.message.reply_text(help_text, parse_mode=ParseMode.MARKDOWN)
-    
+        
     async def about(self, update: Update, context: CallbackContext):
         """Handle /about command"""
         about_text = (

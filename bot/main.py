@@ -160,7 +160,23 @@ class Bot:
         app.add_handler(settings_conv)
 
         # Admin commands
-        app.add_handler(CommandHandler("admin",     self.auth_middleware.wrap_admin(self.admin.dashboard)))
+        admin_conv = ConversationHandler(
+            entry_points=[
+                CommandHandler("admin", self.auth_middleware.wrap_admin(self.admin.dashboard))
+            ],
+            states=self.admin.get_states(),
+            fallbacks=[
+                CommandHandler("cancel", self.admin.cancel),
+                CommandHandler("admin", self.auth_middleware.wrap_admin(self.admin.dashboard)),
+            ],
+            name="admin",
+            persistent=True,
+            per_message=False,
+            allow_reentry=True,
+        )
+        app.add_handler(admin_conv)
+        
+        # Quick admin commands (work outside conversation)
         app.add_handler(CommandHandler("stats",     self.auth_middleware.wrap_admin(self.admin.stats)))
         app.add_handler(CommandHandler("broadcast", self.auth_middleware.wrap_admin(self.admin.broadcast)))
 
@@ -209,9 +225,10 @@ class Bot:
         	
         	if hasattr(self.trading, 'trade_executor') and self.trading.trade_executor:
         		self.trading.trade_executor.mt5_manager = self.trading.mt5_manager
-        		
-        # Set bot commands
-        await self.bot.set_my_commands([
+        
+        from telegram import BotCommandScopeChat
+        # Default commands (all users)
+        user_commands = [
             BotCommand("start",     "Start the bot"),
             BotCommand("help",      "Show help"),
             BotCommand("register",  "Register your MT5 account"),
@@ -223,7 +240,24 @@ class Bot:
             BotCommand("settings",  "Configure settings"),
             BotCommand("profile",   "View your profile"),
             BotCommand("upgrade",   "Upgrade subscription"),
-        ])
+        ]
+        await self.bot.set_my_commands(user_commands)
+        
+        # Admin commands (only visible to admins)
+        admin_commands = user_commands + [
+            BotCommand("admin",     "👑 Admin dashboard"),
+            BotCommand("stats",     "👑 System stats"),
+            BotCommand("broadcast", "👑 Broadcast message"),
+        ]
+        
+        for admin_id in settings.ADMIN_USER_IDS:
+            try:
+                await self.bot.set_my_commands(
+                    admin_commands,
+                    scope=BotCommandScopeChat(chat_id=admin_id)
+                )
+            except Exception as e:
+                logger.warning(f"Could not set admin commands for {admin_id}: {e}")
 
         # Schedule background tasks via job_queue (runs after polling starts, not during init)
         application.job_queue.run_once(
@@ -538,7 +572,7 @@ class Bot:
             try:
             	from services.subscription import SubscriptionService
             	sub_service = SubscriptionService(self.db)
-            	count = sub_service.process_expired()
+            	count = sub_service.process_expired(notification_service=self.notification)
             	if count > 0:
             		logger.info(f"Processed {count} expired subscriptions")
             except Exception as e:
@@ -550,11 +584,18 @@ class Bot:
         	except Exception as e:
         		logger.error(f"Error collecting metrics: {e}")
         
+        async def check_expiry_warnings():
+        	try:
+        		await self.notification.check_subscription_expiry()
+        	except Exception as e:
+        		logger.error(f"Error checking subscription expiry: {e}")
+        
         # Create tasks with names for better tracking
         tasks = [
             asyncio.create_task(run_every(self._check_connections, 300), name="check_connections"),
             asyncio.create_task(run_every(collect_metrics, 900), name="collect_metrics"),
             asyncio.create_task(run_every(process_expired, 86400), name="process_expired"),
+            asyncio.create_task(run_every(check_expiry_warnings, 43200), name="check_expiry_warnings"),
         ]
         
         try:
