@@ -26,6 +26,7 @@ from database.db_persistence import DBPersistence
 from gateway_client import ExecutionProvider
 
 logger = logging.getLogger(__name__)
+
 class Bot:
     """
     Main bot class - initializes and runs the Telegram bot
@@ -351,6 +352,13 @@ class Bot:
         	else:
         		await query.answer("Unknown plan action")
         
+        elif data.startswith('pay_') or data.startswith('period_'):
+        	user = self.user_repo.get_by_telegram_id(user_id)
+        	if not user:
+        		await query.answer("❌ Please register first", show_alert=True)
+        		return
+        	await self._handle_payment_callback(update, context, data, user)
+        
         # Handle notification interactions
         elif data.startswith('notification_') or data.startswith('notify_'):
         	user = self.user_repo.get_by_telegram_id(user_id)
@@ -413,7 +421,101 @@ class Bot:
         else:
         	logger.warning(f"Unknown callback data received: {data} from user {user_id}")
         	await query.answer("Unknown action", show_alert=False)
-
+        
+    async def _handle_payment_callback(self, update, context, data, user):
+        query = update.callback_query
+        user_id = update.effective_user.id
+        
+        from services.payment import PaymentService
+        from bot.keyboards import get_payment_pending_keyboard
+        payment_service = PaymentService(self.db)
+        
+        # Handle billing period selection
+        if data.startswith('period_monthly_') or data.startswith('period_yearly_'):
+            parts = data.split('_', 2)
+            period = parts[1]  # 'monthly' or 'yearly'
+            plan_tier = parts[2]
+            
+            # Store in context for next step
+            context.user_data['upgrade_period'] = period
+            context.user_data['upgrade_plan'] = plan_tier
+            
+            plan = self.sub_service.get_plan(plan_tier)
+            price = plan.price_yearly if period == 'yearly' else plan.price_monthly
+            
+            await query.edit_message_text(
+                f"*{plan_tier.title()} Plan — {period.title()}*\\n\\n"
+                f"💰 Price: ${price}\\n\\n"
+                f"Choose payment method:",
+                parse_mode='Markdown',
+                reply_markup=get_upgrade_keyboard(plan_tier)
+            )
+            return
+        
+        # Handle currency selection → create payment
+        if data.startswith('pay_usdt_') or data.startswith('pay_btc_'):
+            parts = data.split('_', 2)
+            currency = parts[1].upper()
+            plan_tier = parts[2]
+            period = context.user_data.get('upgrade_period', 'monthly')
+            
+            try:
+                result = payment_service.create_payment_request(
+                    user_id=user_id,
+                    plan_tier=plan_tier,
+                    billing_period=period,
+                    currency=currency
+                )
+                
+                network_name = 'Ethereum (ERC-20)' if currency == 'USDT' else 'Bitcoin'
+                
+                await query.edit_message_text(
+                    f"💳 *Payment Request Created*\\n\\n"
+                    f"*Plan:* {plan_tier.title()} ({period})\\n"
+                    f"*Amount:* `{result['amount']}` {currency}\\n"
+                    f"*Network:* {network_name}\\n\\n"
+                    f"*Send exactly this amount to:*\\n"
+                    f"`{result['wallet_address']}`\\n\\n"
+                    f"⚠️ *Send EXACTLY `{result['amount']}` {currency}*\\n"
+                    f"The unique amount identifies your payment.\\n\\n"
+                    f"⏰ Expires in {result['expires_in_minutes']} minutes\\n\\n"
+                    f"Your plan will activate automatically once "
+                    f"the transaction is confirmed on-chain.",
+                    parse_mode='Markdown',
+                    reply_markup=get_payment_pending_keyboard(result['payment_id'])
+                )
+                
+            except Exception as e:
+                await query.edit_message_text(f"❌ Error creating payment: {e}")
+            return
+        
+        # Handle check status
+        if data.startswith('pay_check_'):
+            payment_id = data.replace('pay_check_', '')
+            pending = payment_service.get_pending_payment(user_id)
+            
+            if not pending:
+                await query.edit_message_text(
+                    "✅ No pending payment found.\\n\\n"
+                    "Your plan may have already been activated, "
+                    "or the payment expired.\\n\\n"
+                    "Use /upgrade to try again."
+                )
+            else:
+                await query.answer(
+                    f"⏳ Still waiting... {pending['minutes_left']} min left",
+                    show_alert=True
+                )
+            return
+        
+        # Handle cancel
+        if data.startswith('pay_cancel_'):
+            payment_service._cancel_pending(user.id)
+            await query.edit_message_text(
+                "❌ Payment cancelled.\\n\\nUse /upgrade to try again."
+            )
+            return
+            
     async def _background_tasks(self):
         """Run background tasks with proper cancellation handling"""
         async def run_every(coro_fn, seconds):

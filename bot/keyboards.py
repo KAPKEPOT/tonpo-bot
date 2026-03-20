@@ -49,20 +49,37 @@ def get_upgrade_keyboard(plan_tier: str) -> InlineKeyboardMarkup:
     keyboard = [
         [
             InlineKeyboardButton(
-                f"💳 Subscribe to {plan_tier.title()}",
-                callback_data=f'upgrade_confirm_{plan_tier}'
+                "💰 Pay with USDT (ERC-20)",
+                callback_data=f'pay_usdt_{plan_tier}'
             )
         ],
         [
-            InlineKeyboardButton("📅 Monthly", callback_data=f'upgrade_monthly_{plan_tier}'),
-            InlineKeyboardButton("📅 Yearly (save 17%)", callback_data=f'upgrade_yearly_{plan_tier}')
+            InlineKeyboardButton(
+                "₿ Pay with BTC",
+                callback_data=f'pay_btc_{plan_tier}'
+            )
+        ],
+        [
+            InlineKeyboardButton("📅 Monthly", callback_data=f'period_monthly_{plan_tier}'),
+            InlineKeyboardButton("📅 Yearly (save 17%)", callback_data=f'period_yearly_{plan_tier}')
         ],
         [
             InlineKeyboardButton("🔙 Back to Plans", callback_data='plan_compare')
         ]
     ]
-    return InlineKeyboardMarkup(keyboard)        
-
+    return InlineKeyboardMarkup(keyboard)
+  
+def get_payment_pending_keyboard(payment_id: str) -> InlineKeyboardMarkup:
+    """Get keyboard shown while waiting for payment"""
+    keyboard = [
+        [
+            InlineKeyboardButton("🔄 Check Status", callback_data=f'pay_check_{payment_id}')
+        ],
+        [
+            InlineKeyboardButton("❌ Cancel Payment", callback_data=f'pay_cancel_{payment_id}')
+        ]
+    ]
+    return InlineKeyboardMarkup(keyboard)      
 def get_trade_confirmation_keyboard(trade_data: Dict[str, Any]) -> InlineKeyboardMarkup:
     """Get trade confirmation keyboard"""
     keyboard = [
