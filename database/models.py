@@ -362,6 +362,57 @@ class SubscriptionPlan(Base):
         """Check if this is a free plan"""
         return self.tier == 'free'
 
+class PaymentRequest(Base):
+    """Tracks pending and completed crypto payment requests"""
+    __tablename__ = 'payment_requests'
+    
+    id = Column(Integer, primary_key=True)
+    uuid = Column(String(36), unique=True, default=lambda: str(uuid.uuid4()), nullable=False)
+    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    
+    # What they're paying for
+    plan_tier = Column(String(20), nullable=False)
+    billing_period = Column(String(10), nullable=False)  # 'monthly' or 'yearly'
+    base_amount = Column(Numeric(12, 2), nullable=False)
+    unique_amount = Column(Numeric(12, 4), nullable=False)  # Base + unique cents offset
+    currency = Column(String(10), nullable=False)  # 'USDT' or 'BTC'
+    
+    # Wallet info
+    wallet_address = Column(String(100), nullable=False)
+    network = Column(String(20), nullable=False)  # 'ERC20' or 'BTC'
+    
+    # Status: pending → confirmed → activated | expired | failed
+    status = Column(String(20), nullable=False, default='pending')
+    
+    # Blockchain verification
+    tx_hash = Column(String(100), nullable=True)
+    confirmed_amount = Column(Numeric(12, 6), nullable=True)
+    confirmations = Column(Integer, default=0)
+    block_number = Column(BigInteger, nullable=True)
+    
+    # Timing
+    expires_at = Column(DateTime, nullable=False)
+    confirmed_at = Column(DateTime, nullable=True)
+    activated_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    
+    # Relationships
+    user = relationship("User", backref="payment_requests")
+    
+    __table_args__ = (
+        Index('idx_payment_status', 'status'),
+        Index('idx_payment_unique_amount', 'unique_amount', 'currency', 'status'),
+        Index('idx_payment_expires', 'expires_at', 'status'),
+    )
+    
+    @property
+    def is_expired(self) -> bool:
+        return self.status == 'pending' and datetime.utcnow() > self.expires_at
+    
+    @property
+    def is_pending(self) -> bool:
+        return self.status == 'pending' and datetime.utcnow() <= self.expires_at
+
 
 class ApiUsage(Base):
     """API usage tracking"""
