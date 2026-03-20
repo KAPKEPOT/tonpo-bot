@@ -36,6 +36,14 @@ class User(Base):
     mt5_server = Column(String(100), nullable=False)
     metaapi_token = Column(Text, nullable=True)  # Optional personal token
     
+    # Trial tracking
+    trial_used = Column(Boolean, default=False, nullable=False)
+    trial_start = Column(DateTime, nullable=True)
+    trial_end = Column(DateTime, nullable=True)
+    
+    # Payment history (JSON array)
+    payment_history = Column(JSON, default=list)
+    
     # CMG Gateway credentials (persist across restarts)
     gateway_user_id = Column(String(64), nullable=True, index=True)
     gateway_api_key = Column(Text, nullable=True)
