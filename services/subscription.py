@@ -155,8 +155,16 @@ class SubscriptionService:
             self.db.commit()
     
     def upgrade_user(self, user_id: int, plan_tier: str, 
-                    payment_method: str, payment_id: str) -> Dict[str, Any]:
-        """Upgrade user to a new plan"""
+                    billing_period: str = 'monthly',
+                    payment_method: str = 'crypto', 
+                    payment_id: str = '',
+                    tx_hash: str = '') -> Dict[str, Any]:
+        """
+        Upgrade user to a new plan.
+        
+        Args:
+            billing_period: 'monthly' or 'yearly'
+        """
         user = self.user_repo.get_by_telegram_id(user_id)
         if not user:
             raise SubscriptionError("User not found")
@@ -165,32 +173,49 @@ class SubscriptionService:
         if not plan:
             raise SubscriptionError(f"Plan {plan_tier} not found")
         
+        # Calculate duration based on billing period
+        if billing_period == 'yearly':
+            duration_days = 365
+            amount = float(plan.price_yearly)
+        else:
+            duration_days = 30
+            amount = float(plan.price_monthly)
+        
         # Update user
         old_plan = user.subscription_tier
         user.subscription_tier = plan_tier
-        user.subscription_expiry = datetime.utcnow() + timedelta(days=30)
+        user.subscription_expiry = datetime.utcnow() + timedelta(days=duration_days)
         
-        # Store payment info
-        if not hasattr(user, 'payment_history'):
+        # Append to payment history (persisted JSON column)
+        if user.payment_history is None:
             user.payment_history = []
         
-        user.payment_history.append({
+        # SQLAlchemy won't detect in-place mutation of JSON — copy, modify, reassign
+        history = list(user.payment_history)
+        history.append({
             'date': datetime.utcnow().isoformat(),
             'plan': plan_tier,
-            'amount': float(plan.price_monthly),
+            'billing_period': billing_period,
+            'amount': amount,
+            'currency': plan.currency or 'USD',
             'method': payment_method,
-            'payment_id': payment_id
+            'payment_id': payment_id,
+            'tx_hash': tx_hash
         })
+        user.payment_history = history
         
         self.db.commit()
         
-        logger.info(f"User {user_id} upgraded from {old_plan} to {plan_tier}")
+        logger.info(f"User {user_id} upgraded from {old_plan} to {plan_tier} ({billing_period})")
         
         return {
             'success': True,
             'user_id': user_id,
             'old_plan': old_plan,
             'new_plan': plan_tier,
+            'billing_period': billing_period,
+            'duration_days': duration_days,
+            'amount': amount,
             'expiry': user.subscription_expiry.isoformat(),
             'features': {
                 'max_trades': plan.max_trades_per_day,
@@ -346,7 +371,7 @@ class TrialService:
             raise SubscriptionError("User not found")
         
         # Check if user already had a trial
-        if hasattr(user, 'trial_used') and user.trial_used:
+        if user.trial_used:
             return {
                 'success': False,
                 'message': 'Trial already used'
@@ -357,6 +382,7 @@ class TrialService:
         user.subscription_expiry = datetime.utcnow() + timedelta(days=days)
         user.trial_used = True
         user.trial_start = datetime.utcnow()
+        user.trial_end = datetime.utcnow() + timedelta(days=days)
         
         self.db.commit()
         
@@ -375,7 +401,7 @@ class TrialService:
         if not user:
             return {'eligible': False, 'reason': 'User not found'}
         
-        if hasattr(user, 'trial_used') and user.trial_used:
+        if user.trial_used:
             return {'eligible': False, 'reason': 'Trial already used'}
         
         # Check account age (optional)
