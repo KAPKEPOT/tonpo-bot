@@ -63,13 +63,13 @@ class AdminHandler:
         
         if update.callback_query:
         	await update.callback_query.edit_message_text(
-                text,
+                dashboard_text,
                 parse_mode=ParseMode.MARKDOWN,
                 reply_markup=keyboard
             )
         else:
             await update.message.reply_text(
-                text,
+                dashboard_text,
                 parse_mode=ParseMode.MARKDOWN,
                 reply_markup=keyboard
             )
