@@ -331,7 +331,7 @@ class Bot:
         
         logger.debug(f"Callback received: {data} from user {user_id}")
         
-        if data.startswith('admin:') or data.startswith('admin_'):
+        if data.startswith('admin:') or data.startswith('admin_') or data.startswith('user_'):
         	# Verify admin status
         	if user_id not in settings.ADMIN_USER_IDS:
         		await query.answer("❌ Admin access required", show_alert=True)
