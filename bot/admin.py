@@ -11,7 +11,7 @@ from services.notification import NotificationService
 from services.analytics import AnalyticsService
 from services.monitoring import MonitoringService
 from config.settings import settings
-from bot.keyboards import get_admin_keyboard, get_admin_user_keyboard
+from bot.keyboards import get_admin_keyboard get_admin_user_keyboard
 from bot.message_utils import safe_edit_message
 
 logger = logging.getLogger(__name__)
@@ -61,6 +61,7 @@ class AdminHandler:
             "Select an option:"
         )
         
+        keyboard = get_admin_keyboard()
         if update.callback_query:
         	await update.callback_query.edit_message_text(
                 dashboard_text,
