@@ -6,7 +6,8 @@
 [![Rust](https://img.shields.io/badge/Rust-Gateway-000000?logo=rust&logoColor=white)](https://www.rust-lang.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![Redis](https://img.shields.io/badge/Redis-7-DC382D?logo=redis&logoColor=white)](https://redis.io/)
-[![Telegram](https://img.shields.io/badge/Cipher-Relay-Bot-Telegram-26A5E4?logo=telegram&logoColor=white)](https://t.me/fxsignalcopier1bot)
+[![Telegram](https://img.shields.io/badge/Bot-Telegram-26A5E4?logo=telegram&logoColor=white)](https://t.me/fxsignalcopier1bot)
+[![FX-SIGNAL-COPIER](https://img.shields.io/badge/FX-SIGNAL-COPIER26A5E4?logo=telegram)](https://t.me/fxsignalcopier1bot)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Telegram](https://img.shields.io/badge/Cipher-Trading%20Group-26A5E4?logo=telegram)](https://t.me/CipherTrade1)
 
