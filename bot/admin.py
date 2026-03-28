@@ -61,11 +61,18 @@ class AdminHandler:
             "Select an option:"
         )
         
-        await update.message.reply_text(
-            dashboard_text,
-            parse_mode=ParseMode.MARKDOWN,
-            reply_markup=get_admin_keyboard()
-        )
+        if update.callback_query:
+        	await update.callback_query.edit_message_text(
+                text,
+                parse_mode=ParseMode.MARKDOWN,
+                reply_markup=keyboard
+            )
+        else:
+            await update.message.reply_text(
+                text,
+                parse_mode=ParseMode.MARKDOWN,
+                reply_markup=keyboard
+            )
         
         return ADMIN_MAIN
         
