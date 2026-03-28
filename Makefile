@@ -55,11 +55,12 @@ clean:
 	find . -type d -name ".pytest_cache" -exec rm -rf {} +
 	find . -type d -name ".mypy_cache" -exec rm -rf {} +
 
-docker-up:
-	sudo docker-compose up -d postgres redis
+start-services:
+	sudo systemctl start postgresql redis-server
 
-docker-down:
-	docker-compose down
+stop-services:
+	sudo systemctl stop redis-server
 
-docker-logs:
-	docker-compose logs -f
+status:
+	@echo "PostgreSQL:" && sudo systemctl is-active postgresql
+	@echo "Redis:" && sudo systemctl is-active redis-server
