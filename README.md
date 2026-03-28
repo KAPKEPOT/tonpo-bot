@@ -3,7 +3,7 @@
 # FX Signal Copier Bot 📈🤖
 
 [![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![Rust](https://img.shields.io/badge/Rust-Gateway-000000?logo=rust&logoColor=white)](https://www.rust-lang.org/)
+[![Rust](https://img.shields.io/badge/Rust-Gateway-000000?logo=rust&logoColor=white)](https://www.cipherbridge.cloud/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![Redis](https://img.shields.io/badge/Redis-7-DC382D?logo=redis&logoColor=white)](https://redis.io/)
 [![FX-SIGNAL-COPIER](https://img.shields.io/badge/FX-SIGNAL-COPIER26A5E4?logo=telegram)](https://t.me/fxsignalcopier1bot)
