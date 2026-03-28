@@ -288,9 +288,9 @@ fx-signal-copier/
 └── .env.example            # Environment template
 ```
 
-## CipherTrade Gateway
+## CipherBridge Gateway
 
-The bot connects to the [CipherTrade Gateway](https://github.com/KAPKEPOT/CMG) — a self-hosted Rust server that bridges Telegram to MetaTrader 5. The gateway handles:
+The bot connects to the [CipherBridge Gateway](https://github.com/KAPKEPOT/CMG) — a self-hosted Rust server that bridges Telegram to MetaTrader 5. The gateway handles:
 
 - Credential encryption + secure storage
 - MT5 connection provisioning (Docker or Windows native)
