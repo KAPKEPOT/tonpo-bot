@@ -1,6 +1,13 @@
 # database/migrations/versions/009_add_system_metrics.py
+"""add system_metrics
+
+Revision ID: 009
+"""
 from alembic import op
 import sqlalchemy as sa
+
+revision = '008'
+down_revision = '008'
 
 def upgrade():
     op.create_table('system_metrics',
