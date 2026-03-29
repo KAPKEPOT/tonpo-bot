@@ -29,9 +29,11 @@ class SettingsHandler:
     Handles user settings management
     """
     
-    def __init__(self, db_session: Session, bot):
+    def __init__(self, db_session: Session, bot, mt5_manager=None, execution_provider=None):
         self.db = db_session
         self.bot = bot
+        self.mt5_manager = mt5_manager
+    self.execution_provider = execution_provider
         self.user_repo = UserRepository(db_session)
         self.settings_repo = SettingsRepository(db_session)
         self.auth_service = AuthService(db_session)
@@ -425,60 +427,45 @@ class SettingsHandler:
         return MAIN_MENU
     
     async def _test_connection(self, update: Update, context: CallbackContext):
-        """Test MT5 connection"""
+        """Test MT5 connection via gateway"""
         user_id = context.user_data['settings_user_id']
-        
         try:
-            from services.mt5_manager import MT5ConnectionManager
-            mt5 = MT5ConnectionManager(self.db)
-            await mt5.get_connection(user_id)
-            
-            await context.bot.send_message(
-                chat_id=user_id,
-                text="✅ Connection test successful!"
-            )
+        	if not self.execution_provider:
+        		raise RuntimeError("Gateway not available")
+        	await self.execution_provider.get_connection(user_id)
+        	await context.bot.send_message(chat_id=user_id, text="✅ Connection test successful!")
         except Exception as e:
-            await context.bot.send_message(
-                chat_id=user_id,
-                text=f"❌ Connection test failed: {str(e)[:100]}"
-            )
+        	await context.bot.send_message(
+        	    chat_id=user_id,
+        	    text=f"❌ Connection test failed: {str(e)[:100]}"
+        	)
     
-    async def _update_credentials(self, update: Update, context: CallbackContext,
-                                  account: str, password: str, server: str):
+    async def _update_credentials(self, update, context, account, password, server):
         """Update MT5 credentials"""
         user_id = context.user_data['settings_user_id']
+        try:
+        	if not self.execution_provider:
+        		raise RuntimeError("Gateway not available")
+        	success, message, creds = await self.execution_provider.register_user(
+        	    telegram_id=user_id,
+        	    mt5_account=account,
+        	    mt5_password=password,
+        	    mt5_server=server
+        	)
+        	if success:
+        		self.user_repo.update_user(
+        		    user_id,
+        		    mt5_account_id=account,
+        		    mt5_server=server,
+        		    gateway_api_key=creds.get('gateway_api_key'),
+        		    gateway_user_id=creds.get('gateway_user_id')
+        		)
+        		await context.bot.send_message(chat_id=user_id, text="✅ Credentials updated successfully!")
+        	else:
+        		await context.bot.send_message(chat_id=user_id, text=f"❌ Update failed: {message}")
         
-        from services.mt5_manager import MT5ConnectionManager
-        from services.auth import EncryptionService
-        
-        encryption = EncryptionService()
-        encrypted_password = encryption.encrypt(password)
-        
-        success, message = await MT5ConnectionManager(self.db).connect_user(
-            user_id=user_id,
-            mt5_account=account,
-            mt5_password=encrypted_password,
-            mt5_server=server
-        )
-        
-        if success:
-            # Update database
-            self.user_repo.update_user(
-                user_id,
-                mt5_account_id=account,
-                mt5_password=encrypted_password,
-                mt5_server=server
-            )
-            
-            await context.bot.send_message(
-                chat_id=user_id,
-                text="✅ Credentials updated successfully!"
-            )
-        else:
-            await context.bot.send_message(
-                chat_id=user_id,
-                text=f"❌ Update failed: {message}"
-            )
+        except Exception as e:
+        	await context.bot.send_message(chat_id=user_id, text=f"❌ Update failed: {str(e)[:100]}")
     
     def _format_settings_summary(self, user) -> str:
         """Format settings summary for display"""
@@ -522,5 +509,5 @@ class SettingsHandler:
             SYMBOL_SETTINGS: [CallbackQueryHandler(self.handle_symbols, pattern='^symbol_')],
             CONNECTION_SETTINGS: [CallbackQueryHandler(self.handle_connection, pattern='^conn_')],
             API_SETTINGS: [CallbackQueryHandler(self.handle_api, pattern='^api_')],
-            CONFIRM_UPDATE: [CallbackQueryHandler(self.confirm_update, pattern='^confirm_')],
+            CONFIRM_UPDATE: [MessageHandler(filters.TEXT & ~filters.COMMAND, self.confirm_update)],
         }

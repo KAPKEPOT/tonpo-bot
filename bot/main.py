@@ -19,7 +19,7 @@ from bot.trading import TradingHandler
 from bot.settings import SettingsHandler
 from bot.admin import AdminHandler
 from bot.middleware import AuthMiddleware, RateLimitMiddleware, ErrorHandler
-from services.mt5_manager import MT5ConnectionManager
+#from services.mt5_manager import MT5ConnectionManager
 from services.notification import NotificationService
 from services.cache import CacheService
 from services.queue import QueueService, AsyncTaskManager
@@ -200,24 +200,12 @@ class Bot:
     async def _post_init(self, application):
         """Called by PTB after event loop starts — safe for async init only"""
         logger.info("Initializing async services...")
-       
-        # MetaApi requires a running event loop
-        self.mt5_manager = MT5ConnectionManager(self.db)
-        await self.mt5_manager.start()
         
-        # Wait for manager to be truly ready (with timeout)
-        logger.info("Waiting for MT5 connection manager to be ready...")
-        is_ready, error = await self.mt5_manager.wait_until_ready(timeout=30.0)
-        
-        if not is_ready:
-        	logger.warning(f"MT5 connection manager not ready: {error} — continuing with gateway only")
-        else:
-        	logger.info("MT5 connection manager is ready")
-
-        # Always initialize gateway — it works regardless of MetaAPI
+        # Always initialize gateway
         try:
         	await self.execution_provider.initialize(settings.gateway_config)
         	self._load_gateway_credentials()
+        	logger.info("Gateway initialized successfully")
         except Exception as e:
         	logger.error(f"Gateway initialization failed: {e}")
 
@@ -225,7 +213,7 @@ class Bot:
         self.registration.execution_provider = self.execution_provider
         self.trading.execution_provider = self.execution_provider
         self.trading.mt5_manager_ready.set()
-        self.command_handlers.mt5_manager = self.mt5_manager
+        self.settings_handler.execution_provider = self.execution_provider
         
         if hasattr(self.trading, 'trade_executor') and self.trading.trade_executor:
         	self.trading.trade_executor.mt5_manager = self.trading.mt5_manager
@@ -455,6 +443,24 @@ class Bot:
         	
         	section = data.replace('help_', '')
         	await callbacks.handle_help(update, context, [section])
+        
+        elif data.startswith('conn_') or data.startswith('api_'):
+        	user = self.user_repo.get_by_telegram_id(user_id)
+        	if not user:
+        		await query.answer("❌ Please register first", show_alert=True)
+        		return
+        	if not user.is_active:
+        		await query.answer("❌ Your account is deactivated", show_alert=True)
+        		return
+        	if user.is_banned:
+        		await query.answer("❌ Your account has been banned", show_alert=True)
+        		return
+        	# settings_user_id may be absent if user is outside the conversation
+        	context.user_data.setdefault('settings_user_id', user_id)
+        	if data.startswith('conn_'):
+        		await self.settings_handler.handle_connection(update, context)
+        	else:
+        		await self.settings_handler.handle_api(update, context)
         
         else:
         	logger.warning(f"Unknown callback data received: {data} from user {user_id}")

@@ -26,19 +26,21 @@ class TradingHandler:
     Handles trading conversations
     """
     
-    def __init__(self, db_session: Session, bot, mt5_manager=None):
+    def __init__(self, db_session, bot, mt5_manager=None, execution_provider=None):
         self.db = db_session
         self.bot = bot
+        self.execution_provider = execution_provider
+        self.trade_executor = TradeExecutor(db_session, bot, execution_provider=execution_provider)
         self.user_repo = UserRepository(db_session)
         self.trade_executor = TradeExecutor(db_session, bot, mt5_manager=mt5_manager)
-        self.mt5_manager = mt5_manager
+        # self.mt5_manager = mt5_manager
         self.risk_service = RiskService()
         self.sub_service = SubscriptionService(db_session)
         
         # Track active trades for rate limiting
         self.active_trades = {}
         self.mt5_manager_ready = asyncio.Event()
-        if mt5_manager is not None:
+        if execution_provider is not None:
         	self.mt5_manager_ready.set()
         	
     async def wait_for_mt5_manager(self, timeout: float = 30.0) -> bool:
@@ -406,25 +408,16 @@ class TradingHandler:
         user_id = update.effective_user.id
         action = context.user_data.get('action')
         
-        # Check if mt5_manager exists at all
-        if self.mt5_manager is None:
+        if self.execution_provider is None:
         	await update.message.reply_text(
-        	    "❌ Trading system is still starting up. Please wait a moment and try again.\n"
-            "If this persists, check that MetaAPI credentials are configured correctly."
+        	    "❌ Trading system is still starting up. Please wait a moment and try again."
         	)
         	context.user_data.clear()
         	return
         
-        # Wait for mt5_manager to be ready
         if not await self.wait_for_mt5_manager(timeout=30.0):
-        	# Check if there's a specific error
-        	if hasattr(self.mt5_manager, 'ready_error') and self.mt5_manager.ready_error:
-        		error_msg = self.mt5_manager.ready_error
-        	else:
-        		error_msg = "System is taking longer than expected to initialize"
-        		
         	await update.message.reply_text(
-        	    f"❌ {error_msg}\n\n"
+        	    "❌ System is taking longer than expected to initialize.\n\n"
             "Please try again in a moment. If the problem persists, contact support."
         	)
         	context.user_data.clear()
@@ -449,10 +442,9 @@ class TradingHandler:
         except Exception as e:
             logger.error(f"Action {action} failed for user {user_id}: {e}")
             
-            # Provide user-friendly error messages
-            if "MetaAPI" in str(e) or "token" in str(e).lower():
+            if "not registered" in str(e).lower():
             	await update.message.reply_text(
-            	    "❌ MetaAPI connection error. Please check server configuration."
+            	    "❌ MT5 account not found. Please check your credentials in /settings"
             	)
             elif "not found" in str(e).lower():
             	await update.message.reply_text(
