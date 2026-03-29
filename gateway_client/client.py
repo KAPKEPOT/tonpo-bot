@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List, Callable, Awaitable
 from dataclasses import dataclass, field, asdict
 from enum import Enum
+from core.exceptions import GatewayError
 
 import httpx
 import websockets
@@ -193,32 +194,6 @@ class Candle:
     volume: int
     complete: bool
 
-
-class GatewayError(Exception):
-    """Base exception for gateway errors"""
-    pass
-
-
-class AuthenticationError(GatewayError):
-    """Authentication failed"""
-    pass
-
-
-class ConnectionError(GatewayError):
-    """Connection to gateway failed"""
-    pass
-
-
-class OrderError(GatewayError):
-    """Order execution failed"""
-    pass
-
-
-class SubscriptionError(GatewayError):
-    """Subscription failed"""
-    pass
-
-
 class GatewayClient:
     """
     Main client for Cipher MT5 Gateway
@@ -320,10 +295,15 @@ class GatewayClient:
             data = response.json()
             
             self.user_info = UserInfo(
-                user_id=data['userId'],
-                token=data['token'],
-                expires_in=data['expiresIn']
+                user_id=data.get('user_id', data.get('userId', '')),
+                token=data.get('token', ''),
+                expires_in=data.get('expires_in', data.get('expiresIn', 3600)),
+                api_key=data.get('api_key', data.get('apiKey')),
             )
+            
+            # Auto-set the API key for subsequent requests
+            if self.user_info.api_key:
+                self.set_api_key(self.user_info.api_key)
             
             logger.info(f"Created gateway user: {self.user_info.user_id}")
             return self.user_info
@@ -707,8 +687,9 @@ class GatewayClient:
     	except httpx.HTTPStatusError as e:
     		if e.response.status_code == 401:
     			raise AuthenticationError("Invalid API key")
-    			logger.error(f"Failed to get symbol info: {e}")
-    			raise GatewayError(f"Symbol info failed: {e.response.text}")
+    		logger.error(f"Failed to get symbol info: {e}")
+    		raise GatewayError(f"Symbol info failed: {e.response.text}")
+    		
     async def connect_websocket(self):
         """Establish WebSocket connection for real-time data"""
         if self.ws_connection and not self.ws_connection.closed:
@@ -746,7 +727,7 @@ class GatewayClient:
                     await asyncio.sleep(self.config.ws_reconnect_delay)
                 else:
                     logger.error("Max reconnection attempts reached")
-                    raise ConnectionError("Failed to connect WebSocket")
+                    raise GatewayConnectionError("Failed to connect WebSocket")
     
     async def _ws_listener(self):
         """Listen for WebSocket messages"""
@@ -918,7 +899,7 @@ class GatewayClient:
             await self.connect_websocket()
         
         request_id = str(uuid.uuid4())
-        future = asyncio.get_event_loop().create_future()
+        future = asyncio.get_running_loop().create_future()
         self._pending_requests[request_id] = future
         
         message = {
@@ -946,7 +927,7 @@ class GatewayClient:
             return False
         
         request_id = str(uuid.uuid4())
-        future = asyncio.get_event_loop().create_future()
+        future = asyncio.get_running_loop().create_future()
         self._pending_requests[request_id] = future
         
         message = {
@@ -970,7 +951,7 @@ class GatewayClient:
             await self.connect_websocket()
         
         request_id = str(uuid.uuid4())
-        future = asyncio.get_event_loop().create_future()
+        future = asyncio.get_running_loop().create_future()
         self._pending_requests[request_id] = future
         
         await self.ws_connection.send(json.dumps({
@@ -995,7 +976,7 @@ class GatewayClient:
             await self.connect_websocket()
         
         request_id = str(uuid.uuid4())
-        future = asyncio.get_event_loop().create_future()
+        future = asyncio.get_running_loop().create_future()
         self._pending_requests[request_id] = future
         
         await self.ws_connection.send(json.dumps({
@@ -1007,7 +988,7 @@ class GatewayClient:
             return await asyncio.wait_for(future, timeout=5.0)
         except asyncio.TimeoutError:
             self._pending_requests.pop(request_id, None)
-            raise ConnectionError("Ping timeout")
+            raise GatewayConnectionError("Ping timeout")
     
     # ==================== Callback Registration ====================
     
