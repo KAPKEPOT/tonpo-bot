@@ -107,9 +107,6 @@ class MonitoringService:
         else:
             services['redis'] = 'not_configured'
         
-        # Check MetaAPI (by checking if token exists)
-        services['metaapi'] = 'configured' if settings.METAAPI_TOKEN else 'not_configured'
-        
         return services
     
     def collect_metrics(self):
