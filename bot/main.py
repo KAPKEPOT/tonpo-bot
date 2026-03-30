@@ -215,8 +215,8 @@ class Bot:
         self.trading.mt5_manager_ready.set()
         self.settings_handler.execution_provider = self.execution_provider
         
-        	if hasattr(self.trading, 'trade_executor') and self.trading.trade_executor:
-        		self.trading.trade_executor.mt5_manager = self.trading.mt5_manager
+        if hasattr(self.trading, 'trade_executor') and self.trading.trade_executor:
+        	self.trading.trade_executor.mt5_manager = self.trading.mt5_manager
         
         from telegram import BotCommandScopeChat
         # Default commands (all users)
