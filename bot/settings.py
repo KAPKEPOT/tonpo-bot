@@ -33,7 +33,7 @@ class SettingsHandler:
         self.db = db_session
         self.bot = bot
         self.mt5_manager = mt5_manager
-    self.execution_provider = execution_provider
+        self.execution_provider = execution_provider
         self.user_repo = UserRepository(db_session)
         self.settings_repo = SettingsRepository(db_session)
         self.auth_service = AuthService(db_session)
