@@ -645,7 +645,7 @@ class Bot:
     			self.execution_provider.gateway_manager.load_user_credentials(
     			    telegram_id=user.telegram_id,
     			    api_key=user.gateway_api_key,
-    			    gateway_user_id=user.gateway_user_id
+    			    gateway_account_id=user.gateway_account_id,
     			)
     			loaded += 1
     		except Exception as e:

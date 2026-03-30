@@ -11,7 +11,7 @@ from services.auth import AuthService, EncryptionService
 # MT5ConnectionManager removed — gateway handles MT5 connections now
 from services.notification import NotificationService
 from core.validators import CredentialsValidator
-from gateway_client import ExecutionProvider, GatewayConfig
+#from gateway_client import ExecutionProvider, GatewayConfig
 from config.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -29,19 +29,7 @@ class RegistrationHandler:
         self.encryption = EncryptionService()
         
         # Initialize execution provider
-        self.execution_provider = ExecutionProvider(use_gateway=True)
-        
-        # Keep reference to original mt5_manager for fallback
-        self.mt5_manager = mt5_manager
-        
-        # Gateway config
-        self.gateway_config = GatewayConfig(
-            host=settings.GATEWAY_HOST,
-            port=settings.GATEWAY_PORT,
-            api_key_header=settings.GATEWAY_API_KEY_HEADER,
-            connect_timeout=settings.GATEWAY_CONNECT_TIMEOUT,
-            request_timeout=settings.GATEWAY_REQUEST_TIMEOUT
-        )
+        self.execution_provider = None  # injected by main.py after startup
     
     async def initialize(self):
         """Initialize the execution provider"""
@@ -167,141 +155,95 @@ class RegistrationHandler:
             return ConversationHandler.END
     
     async def _verify_credentials(self, update: Update, context: CallbackContext) -> int:
-        """Verify credentials via gateway account creation"""
-        user_id = update.effective_user.id
-        account = context.user_data['mt5_account']
-        password = context.user_data['mt5_password']
-        server = context.user_data['mt5_server']
-
-        try:
-            # Step 1: Ensure we have a gateway user + API key
-            existing = self.user_repo.get_by_telegram_id(user_id)
-            
-            if not existing or not existing.has_gateway_credentials:
-                # Create gateway user first
-                from gateway_client.client import GatewayClient
-                client = GatewayClient(self.gateway_config)
-                await client.start()
-                
-                user_info = await client.create_user()
-                api_key = user_info.api_key
-                gateway_user_id = user_info.user_id
-                client.set_api_key(api_key)
-                
-                # Save gateway credentials to bot DB
-                if existing:
-                    self.user_repo.update_user(
-                        user_id,
-                        gateway_user_id=gateway_user_id,
-                        gateway_api_key=api_key,
-                    )
-                else:
-                    self.user_repo.create_user(
-                        telegram_id=user_id,
-                        telegram_username=update.effective_user.username,
-                        first_name=update.effective_user.first_name,
-                        last_name=update.effective_user.last_name,
-                        mt5_account_id=account,
-                        mt5_password="GATEWAY_MANAGED",  # not stored locally anymore
-                        mt5_server=server,
-                        is_verified=False,
-                        mt_connected=False,
-                        gateway_user_id=gateway_user_id,
-                        gateway_api_key=api_key,
-                    )
-            else:
-                api_key = existing.gateway_api_key
-                from gateway_client.client import GatewayClient
-                client = GatewayClient(self.gateway_config)
-                await client.start()
-                client.set_api_key(api_key)
-
-            # Step 2: Create trading account on gateway
-            # Gateway encrypts password, provisions node, bridge auto-connects
-            result = await client.create_account(
-                mt5_login=account,
-                mt5_password=password,
-                mt5_server=server,
-            )
-
-            gateway_account_id = result.get('account_id')
-            auth_token = result.get('auth_token')
-
-            # Step 3: Wait for account to become Active (bridge connects, MT5 logs in)
-            query = update.callback_query
-            await query.edit_message_text(
-                "🔄 *Connecting to MT5...*\n"
-                "Bridge is provisioning. This takes 10-30 seconds.",
-                parse_mode=ParseMode.MARKDOWN
-            )
-
-            is_active = await client.wait_for_account_active(gateway_account_id, timeout=60)
-
-            if is_active:
-                # Step 4: Save account ID, mark verified
-                self.user_repo.update_user(
-                    user_id,
-                    mt5_account_id=account,
-                    mt5_password="GATEWAY_MANAGED",
-                    mt5_server=server,
-                    is_verified=True,
-                    mt_connected=True,
-                    gateway_account_id=gateway_account_id,
-                )
-
-                await client.stop()
-
-                # Show success + risk selection
-                from bot.keyboards import get_risk_keyboard
-                await query.edit_message_text(
-                    "✅ *Account connected successfully!*\n\n"
-                    f"Account: `{account}`\n"
-                    f"Server: {server}\n"
-                    f"Status: 🟢 Active\n\n"
-                    "Now, let's set your default risk per trade:",
-                    parse_mode=ParseMode.MARKDOWN,
-                    reply_markup=get_risk_keyboard()
-                )
-                return COMPLETE
-            else:
-                # Check what went wrong
-                status = await client.get_account_status(gateway_account_id)
-                error_msg = status.get('last_error', 'Connection timeout')
-                await client.stop()
-
-                await query.edit_message_text(
-                    f"❌ *Connection failed*\n\n"
-                    f"Error: {error_msg}\n\n"
-                    "Please check your credentials and try /register again.",
-                    parse_mode=ParseMode.MARKDOWN
-                )
-                context.user_data.clear()
-                return ConversationHandler.END
-
-        except Exception as e:
-            logger.error(f"Registration failed for user {user_id}: {e}")
-            
-            # Clean up partial gateway credentials saved in Step 1
-            # so the user can retry cleanly with /register
-            try:
-            	self.user_repo.update_user(
-            	    user_id,
-            	    gateway_user_id=None,
-            	    gateway_api_key=None,
-            	    gateway_account_id=None,
-            	    is_verified=False,
-            	    mt_connected=False,
-            	)
-            except Exception as cleanup_err:
-            	logger.warning(f"Failed to clean up gateway credentials for user {user_id}: {cleanup_err}")
-            
-            await update.callback_query.edit_message_text(
-                f"❌ *Registration error*\n\n{str(e)}",
-                parse_mode=ParseMode.MARKDOWN
-            )
-            context.user_data.clear()
-            return ConversationHandler.END
-            
+    	"""Send credentials to CMG, store only what comes back"""
+    	user_id = update.effective_user.id
+    	query = update.callback_query
+    	
+    	# Pull from memory — will be wiped immediately after use
+    	account  = context.user_data.pop('mt5_account')
+    	password = context.user_data.pop('mt5_password')
+    	server   = context.user_data.pop('mt5_server')
+    	
+    	try:
+    		if not self.execution_provider:
+    			raise RuntimeError("Gateway not available — please try again later")
+    			
+    		# Forward to CMG — bot never touches these again after this call
+    		success, message, creds = await self.execution_provider.register_user(
+    		    telegram_id=user_id,
+    		    mt5_account=account,
+    		    mt5_password=password,
+    		    mt5_server=server,
+    		)
+    		# Wipe from memory immediately — CMG owns them now
+    		del account, password, server
+    		
+    		if not success:
+    			raise RuntimeError(message)
+    		
+    		# Bot only stores the routing keys
+    		gateway_api_key    = creds['gateway_api_key']
+    		gateway_account_id = creds['gateway_account_id']
+    		
+    		existing = self.user_repo.get_by_telegram_id(user_id)
+    		if existing:
+    			self.user_repo.update_user(
+    			    user_id,
+    			    is_verified=True,
+    			    mt_connected=True,
+    			    gateway_api_key=gateway_api_key,
+    			    gateway_account_id=gateway_account_id,
+    			)
+    		else:
+    			self.user_repo.create_user(
+    			    telegram_id=user_id,
+    			    telegram_username=update.effective_user.username,
+    			    first_name=update.effective_user.first_name,
+    			    last_name=update.effective_user.last_name,
+    			    is_verified=True,
+    			    mt_connected=True,
+    			    gateway_api_key=gateway_api_key,
+    			    gateway_account_id=gateway_account_id,
+    			)
+    			
+    		# Show success + risk selection
+    		from bot.keyboards import get_risk_keyboard
+    		await query.edit_message_text(
+    		    "✅ *Account connected successfully!*\n\n"
+    		    "Status: 🟢 Active\n\n"
+    		    "Now, let's set your default risk per trade:",	    
+    		    parse_mode=ParseMode.MARKDOWN,
+    		    reply_markup=get_risk_keyboard()
+    		)
+    		return COMPLETE
+    	
+    	except Exception as e:
+    		error_str = str(e)
+    		logger.error(f"Registration failed for user {user_id}: {error_str}")
+    		
+    		# Clean up any partial DB state
+    		try:
+    			self.user_repo.update_user(
+    			    user_id,
+    			    gateway_api_key=None,
+    			    gateway_account_id=None,
+    			    is_verified=False,
+    			    mt_connected=False,
+    			)
+    		except Exception:
+    			pass
+    		
+    		# Strip raw HTML from gateway/nginx errors
+    		user_msg = "Gateway connection error. Please try again later." \
+            if '<html>' in error_str.lower() else error_str[:150]
+    		await query.edit_message_text(
+    		    f"❌ *Registration error*\n\n{user_msg}\n\n"
+    		    "Please check your credentials and try /register again.",
+    		    parse_mode=ParseMode.MARKDOWN
+    		)
+    		context.user_data.clear()
+    		return ConversationHandler.END
+    			
     async def complete(self, update: Update, context: CallbackContext) -> int:
         """Complete registration with risk preference"""
         query = update.callback_query
