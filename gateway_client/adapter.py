@@ -329,6 +329,7 @@ class GatewayManager:
         self.connections: Dict[int, GatewayConnectionAdapter] = {}
         self.user_api_keys: Dict[int, str] = {}
         self.user_gateway_ids: Dict[int, str] = {}
+        self.user_account_ids: Dict[int, str] = {}
         
         # Readiness tracking
         self._ready = asyncio.Event()
@@ -397,56 +398,75 @@ class GatewayManager:
         mt5_password: str,
         mt5_server: str
     ) -> tuple:
-        """
-        Register a user with the gateway.
-        Called during /register flow.
-        """
-        try:
-            try:
-            	from services.subscription import SubscriptionService
-            	from database.database import db_manager
-            	sub_service = SubscriptionService(db_manager.get_session())
-            	plan = sub_service.get_user_plan(telegram_id)
-            	current_connections = len([uid for uid in self.user_clients if uid == telegram_id])
-            	if plan and plan.max_connections and current_connections >= plan.max_connections:
-            		return False, f"Connection limit reached ({plan.max_connections} for {plan.tier} plan)", {}
-            except Exception as e:
-            	logger.warning(f"Could not check connection limit: {e}")
-            	
-            # Create user in gateway (uses admin client, no auth needed)
-            user_info = await self.admin_client.create_user()
-            
-            # Store gateway user ID and API key
-            api_key = user_info.api_key or user_info.token
-            self.user_gateway_ids[telegram_id] = user_info.user_id
-            self.user_api_keys[telegram_id] = api_key
-            
-            # Create a dedicated client for this user
-            user_client = await self._create_user_client(api_key)
-            self.user_clients[telegram_id] = user_client
-            
-            # Connect MT5 account using the user's own client
-            result = await user_client.connect_mt5(
-                mt5_login=mt5_account,
-                mt5_password=mt5_password,
-                server=mt5_server,
-                user_id=user_info.user_id
-            )
-            
-            logger.info(f"User {telegram_id} registered with gateway (gw_id={user_info.user_id})")
-            return True, "Connected successfully", {
-                'gateway_user_id': user_info.user_id,
-                'gateway_api_key': api_key
-            }
-            
-        except Exception as e:
-            logger.error(f"Gateway registration failed for user {telegram_id}: {e}")
-            # Clean up on failure
-            self.user_clients.pop(telegram_id, None)
-            self.user_api_keys.pop(telegram_id, None)
-            self.user_gateway_ids.pop(telegram_id, None)
-            return False, str(e)
-    
+    	"""
+    	Register a user with the gateway.
+    Returns (success, message, credentials_dict).
+    credentials_dict contains: gateway_user_id, gateway_api_key, gateway_account_id
+    	"""
+    	try:
+    		# Check connection limit
+    		try:
+    			from services.subscription import SubscriptionService
+    			from database.database import db_manager
+    			sub_service = SubscriptionService(db_manager.get_session())
+    			plan = sub_service.get_user_plan(telegram_id)
+    			current_connections = len([uid for uid in self.user_clients if uid == telegram_id])
+    			if plan and plan.max_connections and current_connections >= plan.max_connections:
+    				return False, f"Connection limit reached ({plan.max_connections} for {plan.tier} plan)", {}
+    		except Exception as e:
+    			logger.warning(f"Could not check connection limit: {e}")
+    		
+    		# Step 1: Create gateway user (admin client, no auth needed)
+    		user_info = await self.admin_client.create_user()
+    		api_key = user_info.api_key or user_info.token
+    		gateway_user_id = user_info.user_id
+    		
+    		# Step 2: Create dedicated client for this user
+    		user_client = await self._create_user_client(api_key)
+    		
+    		# Step 3: Provision MT5 account on gateway
+    		result = await user_client.create_account(
+    		    mt5_login=mt5_account,
+    		    mt5_password=mt5_password,
+    		    mt5_server=mt5_server,
+    		)
+    		gateway_account_id = result.get('account_id')
+    		if not gateway_account_id:
+    			raise RuntimeError("Gateway did not return an account_id")
+    		
+    		# Step 4: Wait for MT5 to connect and become active
+    		is_active = await user_client.wait_for_account_active(
+    		    gateway_account_id, timeout=60, poll_interval=3
+    		)
+    		if not is_active:
+    			status = await user_client.get_account_status(gateway_account_id)
+    			error_msg = status.get('last_error', 'Connection timeout — check credentials')
+    			# Clean up the provisioned account
+    			try:
+    				await user_client.delete_account(gateway_account_id)
+    			except Exception:
+    				pass
+    			raise RuntimeError(error_msg)
+    		
+    		# Step 5: Store in memory now that everything succeeded
+    		self.user_gateway_ids[telegram_id] = gateway_user_id
+    		self.user_api_keys[telegram_id] = api_key
+    		self.user_clients[telegram_id] = user_client
+    		
+    		logger.info(f"User {telegram_id} registered (gw_id={gateway_user_id}, account={gateway_account_id})")
+    		return True, "Connected successfully", {
+    		    'gateway_user_id': gateway_user_id,
+    		    'gateway_api_key': api_key,
+    		    'gateway_account_id': gateway_account_id,
+    		}
+    	except Exception as e:
+    		logger.error(f"Gateway registration failed for user {telegram_id}: {e}")
+    		# Clean up in-memory state
+    		self.user_clients.pop(telegram_id, None)
+    		self.user_api_keys.pop(telegram_id, None)
+    		self.user_gateway_ids.pop(telegram_id, None)
+    		return False, str(e), {}
+    		
     async def get_connection(self, telegram_id: int) -> GatewayConnectionAdapter:
         """
         Get or create a connection adapter for a user.
@@ -469,7 +489,7 @@ class GatewayManager:
         # Create connection adapter with the user's own client
         connection = GatewayConnectionAdapter(
             self.user_clients[telegram_id],
-            self.user_gateway_ids.get(telegram_id, "")
+            self.user_account_ids.get(telegram_id, ""),
         )
         
         self.connections[telegram_id] = connection
@@ -493,13 +513,18 @@ class GatewayManager:
         """Get connection status"""
         return telegram_id in self.connections
     
-    def load_user_credentials(self, telegram_id: int, api_key: str, gateway_user_id: str):
+    def load_user_credentials(
+        self,
+        telegram_id: int,
+        api_key: str,
+        gateway_account_id: str,
+    ):
         """
         Load stored credentials (called on startup from database).
         The actual client is created lazily in get_connection().
         """
         self.user_api_keys[telegram_id] = api_key
-        self.user_gateway_ids[telegram_id] = gateway_user_id
+        self.user_account_ids[telegram_id] = gateway_account_id
 
 
 class ExecutionProvider:
