@@ -32,8 +32,6 @@ class TradingHandler:
         self.execution_provider = execution_provider
         self.trade_executor = TradeExecutor(db_session, bot, execution_provider=execution_provider)
         self.user_repo = UserRepository(db_session)
-        self.trade_executor = TradeExecutor(db_session, bot, mt5_manager=mt5_manager)
-        # self.mt5_manager = mt5_manager
         self.risk_service = RiskService()
         self.sub_service = SubscriptionService(db_session)
         
@@ -424,7 +422,7 @@ class TradingHandler:
         	return
         
         try:
-            connection = await self.mt5_manager.get_connection(user_id)
+            connection = await self.execution_provider.get_connection(user_id)
             
             if action == 'balance':
                 account_info = await connection.get_account_information()
