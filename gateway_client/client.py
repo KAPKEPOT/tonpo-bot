@@ -387,9 +387,9 @@ class GatewayClient:
             raise GatewayError("Client not started")
 
         data = {
-            "mt5_login": mt5_login,
-            "mt5_password": mt5_password,
-            "mt5_server": mt5_server,
+            "mt5Login": mt5_login,
+            "mt5Password": mt5_password,
+            "mt5Server": mt5_server,
         }
         if region:
             data["region"] = region
