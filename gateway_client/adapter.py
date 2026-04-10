@@ -436,11 +436,16 @@ class GatewayManager:
     		
     		# Step 4: Wait for MT5 to connect and become active
     		is_active = await user_client.wait_for_account_active(
-    		    gateway_account_id, timeout=60, poll_interval=3
+    		    gateway_account_id, timeout=180, poll_interval=5
     		)
     		if not is_active:
     			status = await user_client.get_account_status(gateway_account_id)
-    			error_msg = status.get('last_error', 'Connection timeout — check credentials')
+    			error_msg = (
+    			    status.get('last_error')
+    			    or f"Timed out waiting for MT5 login "
+    			        f"(account status: {status.get('status', 'unknown')}) — "
+    			        f"check MT5 credentials and server name"
+    			)
     			# Clean up the provisioned account
     			try:
     				await user_client.delete_account(gateway_account_id)
