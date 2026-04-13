@@ -3,14 +3,13 @@
 # FX Signal Copier Bot 📈🤖
 
 [![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![Rust](https://img.shields.io/badge/Rust-Gateway-000000?logo=rust&logoColor=white)](https://www.cipherbridge.cloud/)
+[![Rust](https://img.shields.io/badge/Rust-Gateway-000000?logo=rust&logoColor=white)](https://www.rust-lang.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![Redis](https://img.shields.io/badge/Redis-7-DC382D?logo=redis&logoColor=white)](https://redis.io/)
-[![FX-SIGNAL-COPIER](https://img.shields.io/badge/FX-SIGNAL-COPIER26A5E4?logo=telegram)](https://t.me/fxsignalcopier1bot)
+[![Telegram](https://img.shields.io/badge/Bot-Telegram-26A5E4?logo=telegram&logoColor=white)](https://t.me/fxsignalcopier1bot)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Telegram](https://img.shields.io/badge/Cipher-Trading%20Group-26A5E4?logo=telegram)](https://t.me/CipherTrade1)
 
-**A self-hosted Telegram trading bot that executes forex trades on MetaTrader 5 — powered by its own high-performance Rust gateway. No third-party APIs. No monthly fees. You own everything.**
+**A Telegram trading bot for MetaTrader 5 that executes forex trades using a high-performance Rust-based execution gateway. It enables fast and automated trade execution without third-party APIs.**
 
 [Try the Bot](https://t.me/fxsignalcopier1bot) · [Join Community](https://t.me/CipherTrade1) · [Report Bug](https://github.com/KAPKEPOT/fx-signal-copier/issues)
 
@@ -21,7 +20,7 @@
 ## How It Works
 
 ```
-User sends signal ──→ Telegram Bot ──→ CipherBridge Gateway ──→ MT5 Terminal
+User sends signal ──→ Telegram Bot ──→ CipherTrade Gateway ──→ MT5 Terminal
      via Telegram        (Python)          (Rust/axum)          (via Bridge DLL)
 ```
 
@@ -227,7 +226,7 @@ TP2 1.09500
 
 | Feature | Free | Basic | Pro | Enterprise |
 |---------|------|-------|-----|------------|
-| Trades/day | 5 | 10 | 20 | 50 |
+| Trades/day | 10 | 50 | 200 | Unlimited |
 | Multiple TPs | — | ✅ | ✅ | ✅ |
 | Auto-trading | — | — | ✅ | ✅ |
 | API access | — | — | — | ✅ |
@@ -289,9 +288,9 @@ fx-signal-copier/
 └── .env.example            # Environment template
 ```
 
-## CipherBridge Gateway
+## CipherTrade Gateway
 
-The bot connects to the [CipherBridge Gateway](https://github.com/KAPKEPOT/CMG) — a self-hosted Rust server that bridges Telegram to MetaTrader 5. The gateway handles:
+The bot connects to the [CipherTrade Gateway](https://github.com/KAPKEPOT/CMG) — a self-hosted Rust server that bridges Telegram to MetaTrader 5. The gateway handles:
 
 - Credential encryption + secure storage
 - MT5 connection provisioning (Docker or Windows native)
