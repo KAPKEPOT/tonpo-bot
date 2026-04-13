@@ -1,43 +1,31 @@
-# fx/gateway_client/__init__.py
+# gateway_client/__init__.py
 """
-Gateway client package for Cipher MT5 Gateway integration
-"""
+gateway_client — thin compatibility shim.
 
-from .client import (
-    GatewayClient, GatewayConfig, GatewayError,
-    AuthenticationError, GatewayConnectionError, OrderError,
-    SubscriptionError, AccountInfo, Position, OrderResult,
-    Quote, Tick, Candle, OrderType, OrderSide
-)
+Previously this package contained a hand-rolled HTTP/WebSocket client
+(client.py).  That file is deleted.  All gateway logic now lives in
+adapter.py, which delegates entirely to the cipher_gateway SDK.
+
+Public API re-exported here so the rest of the bot (main.py, etc.)
+continues to import from `gateway_client` unchanged.
+"""
 
 from .adapter import (
-    GatewayConnectionAdapter, GatewayManager, ExecutionProvider
+    GatewayConnectionAdapter,
+    GatewayManager,
+    ExecutionProvider,
 )
 
+# GatewayConfig comes directly from the SDK — re-export so callers that do
+#   from gateway_client import GatewayConfig
+# or
+#   from gateway_client.client import GatewayConfig
+# both keep working without changes.
+from cipher_gateway import GatewayConfig
+
 __all__ = [
-    # Client
-    'GatewayClient',
-    'GatewayConfig',
-    'GatewayError',
-    'AuthenticationError',
-    'GatewayConnectionError',
-    'OrderError',
-    'SubscriptionError',
-    
-    # Data classes
-    'AccountInfo',
-    'Position',
-    'OrderResult',
-    'Quote',
-    'Tick',
-    'Candle',
-    
-    # Enums
-    'OrderType',
-    'OrderSide',
-    
-    # Adapters
-    'GatewayConnectionAdapter',
-    'GatewayManager',
-    'ExecutionProvider'
+    "GatewayConnectionAdapter",
+    "GatewayManager",
+    "ExecutionProvider",
+    "GatewayConfig",
 ]
