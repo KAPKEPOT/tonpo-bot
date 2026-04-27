@@ -11,7 +11,7 @@ continues to import from `gateway_client` unchanged.
 """
 
 from .adapter import (
-    GatewayConnectionAdapter,
+    TonpoConnectionAdapter,
     GatewayManager,
     ExecutionProvider,
 )
@@ -21,11 +21,11 @@ from .adapter import (
 # or
 #   from gateway_client.client import GatewayConfig
 # both keep working without changes.
-from cipher_gateway import GatewayConfig
+from tonpo import TonpoConfig
 
 __all__ = [
-    "GatewayConnectionAdapter",
+    "TonpoConnectionAdapter",
     "GatewayManager",
     "ExecutionProvider",
-    "GatewayConfig",
+    "TonpoConfig",
 ]

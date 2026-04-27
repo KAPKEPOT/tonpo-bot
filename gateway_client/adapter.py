@@ -4,23 +4,23 @@ Gateway adapter — replaces the hand-rolled gateway_client/client.py with
 the official cipher_gateway SDK (pip install cipher-gateway).
 
 External interface is unchanged:
-  - GatewayConnectionAdapter  — used by trade_executor.py / trading.py
+  - TonpoConnectionAdapter  — used by trade_executor.py / trading.py
   - GatewayManager            — used by adapter.py / main.py
   - ExecutionProvider         — used by main.py
 
-Internal implementation now delegates entirely to CipherGatewayClient.
+Internal implementation now delegates entirely to TonpoClient.
 """
 import asyncio
 import logging
 from typing import Optional, Dict, Any, List
 
-from cipher_gateway import (
-    CipherGatewayClient,
-    GatewayConfig,
+from Tonpo import (
+    TonpoClient,
+    TonpoConfig,
     AccountLoginFailedError,
     AccountTimeoutError,
-    GatewayConnectionError,
-    CipherGatewayError,
+    TonpoConnectionError,
+    TonpoError,
 )
 
 from config.settings import settings
@@ -34,8 +34,8 @@ logger = logging.getLogger(__name__)
 # Wraps one CipherGatewayClient (already authenticated for a single user).
 # Methods match what trade_executor.py and trading.py call — untouched.
 
-class GatewayConnectionAdapter:
-    def __init__(self, client: CipherGatewayClient, user_id: str):
+class TonpoConnectionAdapter:
+    def __init__(self, client: TonpoClient, user_id: str):
         self.client  = client
         self.user_id = user_id
         self._connected = True
@@ -192,12 +192,12 @@ class GatewayConnectionAdapter:
 # Manages one SDK client per user.  Public interface unchanged from before.
 
 class GatewayManager:
-    def __init__(self, gateway_config: Optional[GatewayConfig] = None):
-        self.gateway_config: GatewayConfig = gateway_config or GatewayConfig()
+    def __init__(self, tonpo_config: Optional[TonpoConfig] = None):
+        self.gateway_config: TonpoConfig = tonpo_config or TonpoConfig()
 
         # Per-user live clients (created lazily in get_connection)
-        self.user_clients:      Dict[int, CipherGatewayClient] = {}
-        self.connections:       Dict[int, GatewayConnectionAdapter] = {}
+        self.user_clients:      Dict[int, TonpoClient] = {}
+        self.connections: Dict[int, TonpoConnectionAdapter] = {}
 
         # Credentials loaded from DB on startup or stored after registration
         self.user_api_keys:     Dict[int, str] = {}
@@ -213,7 +213,7 @@ class GatewayManager:
         """Health-check the gateway and mark the manager as ready."""
         logger.info("GatewayManager starting — checking gateway health...")
         try:
-            async with CipherGatewayClient.admin(self.gateway_config) as client:
+            async with TonpoClient.admin(self.gateway_config) as client:
                 healthy = await client.health_check()
             if healthy:
                 self._ready.set()
@@ -260,7 +260,7 @@ class GatewayManager:
         """
         Register a user with the gateway.
         Returns (success, message, credentials_dict).
-        credentials_dict contains: gateway_user_id, gateway_api_key, gateway_account_id
+        credentials_dict contains: tonpo_user_id, tonpo_api_key, tonpo_account_id
         """
         try:
             # Subscription / connection-limit check
@@ -280,54 +280,54 @@ class GatewayManager:
                 logger.warning(f"Could not check connection limit: {e}")
 
             # Step 1: create a gateway user (no auth required)
-            async with CipherGatewayClient.admin(self.gateway_config) as admin:
-                user_creds = await admin.create_user()
+            async with TonpoClient.admin(self.gateway_config) as client:
+                user_creds = await client.create_user()
 
             api_key          = user_creds.api_key
-            gateway_user_id  = user_creds.gateway_user_id
+            tonpo_user_id  = user_creds.gateway_user_id
 
             # Step 2 + 3 + 4: provision account and wait for MT5 to connect
-            async with CipherGatewayClient.for_user(self.gateway_config, api_key) as client:
+            async with TonpoClient.for_user(self.gateway_config, api_key) as client:
                 account = await client.create_account(
                     mt5_login    = mt5_account,
                     mt5_password = mt5_password,
                     mt5_server   = mt5_server,
                 )
-                gateway_account_id = account.account_id
+                tonpo_account_id = account.account_id
 
                 try:
-                    await client.wait_for_active(gateway_account_id, timeout=180)
+                    await client.wait_for_active(tonpo_account_id, timeout=180)
                 except AccountLoginFailedError as e:
                     # Clean up — wrong credentials, no point keeping the account
                     try:
-                        await client.delete_account(gateway_account_id)
+                        await client.delete_account(tonpo_account_id)
                     except Exception:
                         pass
                     return False, f"MT5 login failed — check credentials: {e}", {}
                 except AccountTimeoutError as e:
                     try:
-                        await client.delete_account(gateway_account_id)
+                        await client.delete_account(tonpo_account_id)
                     except Exception:
                         pass
                     return False, f"MT5 did not connect in time: {e}", {}
 
             # Step 5: store credentials in memory
-            self.user_gateway_ids[telegram_id] = gateway_user_id
+            self.user_gateway_ids[telegram_id] = tonpo_user_id
             self.user_api_keys[telegram_id]    = api_key
-            self.user_account_ids[telegram_id] = gateway_account_id
+            self.user_account_ids[telegram_id] = tonpo_account_id
 
             logger.info(
                 f"User {telegram_id} registered "
-                f"(gw_id={gateway_user_id}, account={gateway_account_id})"
+                f"(gw_id={tonpo_user_id}, account={tonpo_account_id})"
             )
             return True, "Connected successfully", {
-                'gateway_user_id':   gateway_user_id,
-                'gateway_api_key':   api_key,
-                'gateway_account_id': gateway_account_id,
+                'tonpo_user_id':    tonpo_user_id,
+                'tonpo_api_key':    api_key,
+                'tonpo_account_id': tonpo_account_id,
             }
 
-        except CipherGatewayError as e:
-            logger.error(f"Gateway registration failed for {telegram_id}: {e}")
+        except TonpoError as e:
+            logger.error(f"Tonpo registration failed for {telegram_id}: {e}")
             self.user_clients.pop(telegram_id, None)
             self.user_api_keys.pop(telegram_id, None)
             self.user_gateway_ids.pop(telegram_id, None)
@@ -341,9 +341,9 @@ class GatewayManager:
 
     # ── Connection access ─────────────────────────────────────────────────────
 
-    async def get_connection(self, telegram_id: int) -> GatewayConnectionAdapter:
+    async def get_connection(self, telegram_id: int) -> TonpoConnectionAdapter:
         """
-        Return a GatewayConnectionAdapter for the given user.
+        Return a TonpoConnectionAdapter for the given user.
         The SDK client is created lazily — once per user, reused thereafter.
         """
         if telegram_id in self.connections:
@@ -355,16 +355,16 @@ class GatewayManager:
         # Create and start SDK client if not already alive
         if telegram_id not in self.user_clients:
             api_key = self.user_api_keys[telegram_id]
-            client  = CipherGatewayClient.for_user(self.gateway_config, api_key)
+            client = TonpoClient.for_user(self.gateway_config, api_key)
             await client.__aenter__()
             self.user_clients[telegram_id] = client
 
-        connection = GatewayConnectionAdapter(
+        connection = TonpoConnectionAdapter(
             self.user_clients[telegram_id],
             self.user_account_ids.get(telegram_id, ""),
         )
         self.connections[telegram_id] = connection
-        logger.info(f"Created gateway connection for user {telegram_id}")
+        logger.info(f"Created tonpo connection for user {telegram_id}")
         return connection
 
     async def close_connection(self, telegram_id: int):
@@ -378,7 +378,7 @@ class GatewayManager:
             except Exception:
                 pass
 
-        logger.info(f"Closed gateway connection for user {telegram_id}")
+        logger.info(f"Closed tonpo connection for user {telegram_id}")
 
     def get_connection_status(self, telegram_id: int) -> bool:
         return telegram_id in self.connections
@@ -407,8 +407,8 @@ class ExecutionProvider:
         self.use_gateway              = use_gateway
         self.gateway_manager: Optional[GatewayManager] = None
 
-    async def initialize(self, gateway_config: Optional[GatewayConfig] = None):
-        self.gateway_manager = GatewayManager(gateway_config)
+    async def initialize(self, tonpo_config: Optional[TonpoConfig] = None):
+        self.gateway_manager = GatewayManager(tonpo_config)
         await self.gateway_manager.start()
 
     async def shutdown(self):
@@ -419,14 +419,12 @@ class ExecutionProvider:
         if not self.gateway_manager:
             return False
         try:
-            async with CipherGatewayClient.admin(
-                self.gateway_manager.gateway_config
-            ) as client:
+            async with TonpoClient.admin(self.gateway_manager.gateway_config) as client:
                 return await client.health_check()
         except Exception:
             return False
 
-    async def get_connection(self, user_id: int) -> GatewayConnectionAdapter:
+    async def get_connection(self, user_id: int) -> TonpoConnectionAdapter:
         if not self.gateway_manager:
             raise RuntimeError("Gateway not initialised")
         return await self.gateway_manager.get_connection(user_id)
