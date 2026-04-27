@@ -22,8 +22,8 @@ class TradeSignal:
     
     def __post_init__(self):
         """Validate after initialization"""
-        if self.take_profits and len(self.take_profits) > 2:
-            self.take_profits = self.take_profits[:2]  # Max 2 TPs
+        if self.take_profits and len(self.take_profits) > 3:
+            self.take_profits = self.take_profits[:3]  # Max 3 TPs
     
     @property
     def has_multiple_tps(self) -> bool:

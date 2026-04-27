@@ -47,11 +47,11 @@ class PositionSizeError(TradeError):
     """Raised when position size is invalid"""
     pass
 
-class ConnectionError(FXSignalCopierError):
+class BotConnectionError(FXSignalCopierError):
     """Raised for connection issues"""
     pass
 
-class MT5ConnectionError(ConnectionError):
+class MT5ConnectionError(BotConnectionError):
     """Raised when MT5 connection fails"""
     pass
 
