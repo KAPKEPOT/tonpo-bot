@@ -6,7 +6,7 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![Redis](https://img.shields.io/badge/Redis-7-DC382D?logo=redis&logoColor=white)](https://redis.io/)
 [![Telegram](https://img.shields.io/badge/Telegram-Bot-26A5E4?logo=telegram&logoColor=white)](https://t.me/BotFather)
-[![License](https://img.shields.io/badge/License-Proprietary-red.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-MIT-red.svg)](LICENSE)
 
 **A Telegram trading bot for MetaTrader 5. Executes forex trades automatically from signals with smart risk management and subscription tiers.**
 
@@ -212,23 +212,6 @@ TP2 2330.00
 TP3 2350.00
 ```
 
----
-
-## Subscription Plans
-
-| Feature | Free | Basic | Pro | Enterprise |
-|---|---|---|---|---|
-| Trades/day | 10 | 50 | 200 | Unlimited |
-| Multiple TPs | — | ✅ | ✅ | ✅ |
-| Auto-trading | — | — | ✅ | ✅ |
-| API access | — | — | — | ✅ |
-| MT5 accounts | 1 | 1 | 3 | 10 |
-| Priority support | — | — | ✅ | ✅ |
-| Price | Free | $9.99/mo | $29.99/mo | $99.99/mo |
-
-Payments accepted in **USDT (ERC-20)** and **BTC**. Automatic on-chain verification.
-
----
 
 ## How the Bot Works
 
