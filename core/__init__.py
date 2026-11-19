@@ -8,7 +8,7 @@ from .validators import (
 )
 from .exceptions import (
     FXSignalCopierError, TradeError, SignalParseError,
-    InvalidSymbolError, RiskError, ConnectionError,
+    InvalidSymbolError, RiskError, GatewayConnectionError,
     MT5ConnectionError, AuthenticationError, ValidationError
 )
 

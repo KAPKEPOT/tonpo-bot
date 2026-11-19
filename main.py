@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 
 if __name__ == '__main__':
-    logger.info("Starting Tonpo Bot v1.0.0")
+    logger.info("Starting Tonpo Bot v0.1.2")
     from bot.main import Bot
     bot = Bot()
     bot.run()

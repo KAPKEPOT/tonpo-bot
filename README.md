@@ -212,23 +212,6 @@ TP2 2330.00
 TP3 2350.00
 ```
 
----
-
-## Subscription Plans
-
-| Feature | Free | Basic | Pro | Enterprise |
-|---|---|---|---|---|
-| Trades/day | 10 | 50 | 200 | Unlimited |
-| Multiple TPs | — | ✅ | ✅ | ✅ |
-| Auto-trading | — | — | ✅ | ✅ |
-| API access | — | — | — | ✅ |
-| MT5 accounts | 1 | 1 | 3 | 10 |
-| Priority support | — | — | ✅ | ✅ |
-| Price | Free | $9.99/mo | $29.99/mo | $99.99/mo |
-
-Payments accepted in **USDT (ERC-20)** and **BTC**. Automatic on-chain verification.
-
----
 
 ## How the Bot Works
 

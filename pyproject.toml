@@ -3,12 +3,12 @@ requires = ["setuptools>=67.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "fx-signal-copier"
-version = "2.0.0"
+name = "Tonpo-Bot"
+version = "0.1.2"
 description = "Telegram Bot for MetaTrader 5 Trading"
 readme = "README.md"
 authors = [
-    {name = "Your Name", email = "your.email@example.com"}
+    {name = "KAPKEPOT", email = "carbon-crumb-churn@duck.com"}
 ]
 license = {text = "MIT"}
 classifiers = [
@@ -34,10 +34,11 @@ dependencies = [
     "cryptography>=43.0.0",
     "python-dotenv>=1.0.1",
     "pydantic>=2.7.4",
+    "tonpo>=1.0.6",
 ]
 
 [project.scripts]
-fx-bot = "main:main"
+tonpo-bot = "main:main"
 
 [tool.black]
 line-length = 100

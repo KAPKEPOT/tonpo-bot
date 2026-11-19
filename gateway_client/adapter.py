@@ -1,7 +1,7 @@
 # gateway_client/adapter.py
 """
 Gateway adapter — replaces the hand-rolled gateway_client/client.py with
-the official cipher_gateway SDK (pip install cipher-gateway).
+the official Tonpo SDK (pip install tonpo).
 
 External interface is unchanged:
   - TonpoConnectionAdapter  — used by trade_executor.py / trading.py
@@ -14,7 +14,7 @@ import asyncio
 import logging
 from typing import Optional, Dict, Any, List
 
-from Tonpo import (
+from tonpo import (
     TonpoClient,
     TonpoConfig,
     AccountLoginFailedError,
@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # GatewayConnectionAdapter
 # ---------------------------------------------------------------------------
-# Wraps one CipherGatewayClient (already authenticated for a single user).
+# Wraps one TonpoClient (already authenticated for a single user).
 # Methods match what trade_executor.py and trading.py call — untouched.
 
 class TonpoConnectionAdapter:
