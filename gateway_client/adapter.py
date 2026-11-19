@@ -1,15 +1,4 @@
 # gateway_client/adapter.py
-"""
-Gateway adapter — replaces the hand-rolled gateway_client/client.py with
-the official Tonpo SDK (pip install tonpo).
-
-External interface is unchanged:
-  - TonpoConnectionAdapter  — used by trade_executor.py / trading.py
-  - GatewayManager            — used by adapter.py / main.py
-  - ExecutionProvider         — used by main.py
-
-Internal implementation now delegates entirely to TonpoClient.
-"""
 import asyncio
 import logging
 from typing import Optional, Dict, Any, List
@@ -28,9 +17,7 @@ from config.settings import settings
 logger = logging.getLogger(__name__)
 
 
-# ---------------------------------------------------------------------------
 # GatewayConnectionAdapter
-# ---------------------------------------------------------------------------
 # Wraps one TonpoClient (already authenticated for a single user).
 # Methods match what trade_executor.py and trading.py call — untouched.
 
@@ -40,8 +27,7 @@ class TonpoConnectionAdapter:
         self.user_id = user_id
         self._connected = True
 
-    # ── Account ──────────────────────────────────────────────────────────────
-
+    # ── Account 
     async def get_account_information(self) -> Dict[str, Any]:
         info = await self.client.get_account_info()
         return {
@@ -75,8 +61,7 @@ class TonpoConnectionAdapter:
             'comment':      p.comment,
         } for p in positions]
 
-    # ── Market orders ─────────────────────────────────────────────────────────
-
+    # ── Market orders 
     async def create_market_buy_order(
         self, symbol: str, volume: float,
         sl: Optional[float] = None, tp: Optional[float] = None,
@@ -97,8 +82,7 @@ class TonpoConnectionAdapter:
         )
         return {'orderId': str(result.ticket)} if result.success else {}
 
-    # ── Limit orders ──────────────────────────────────────────────────────────
-
+    # Limit orders 
     async def create_limit_buy_order(
         self, symbol: str, volume: float, price: float,
         sl: Optional[float] = None, tp: Optional[float] = None,
@@ -121,8 +105,7 @@ class TonpoConnectionAdapter:
         )
         return {'orderId': str(result.ticket)} if result.success else {}
 
-    # ── Stop orders ───────────────────────────────────────────────────────────
-
+    #  Stop orders
     async def create_stop_buy_order(
         self, symbol: str, volume: float, price: float,
         sl: Optional[float] = None, tp: Optional[float] = None,
@@ -145,8 +128,7 @@ class TonpoConnectionAdapter:
         )
         return {'orderId': str(result.ticket)} if result.success else {}
 
-    # ── Position management ───────────────────────────────────────────────────
-
+    #  Position management
     async def close_position(self, position_id: str) -> bool:
         result = await self.client.close_position(ticket=int(position_id))
         return result.success
@@ -160,8 +142,7 @@ class TonpoConnectionAdapter:
         )
         return result.success
 
-    # ── Market data ───────────────────────────────────────────────────────────
-
+    #  Market data
     async def get_symbol_price(self, symbol: str) -> Dict[str, float]:
         """
         Get current bid/ask for a symbol.
@@ -175,8 +156,7 @@ class TonpoConnectionAdapter:
             logger.warning(f"get_symbol_price({symbol}): {e}")
             raise RuntimeError(f"Unable to get price for {symbol}: {e}")
 
-    # ── Lifecycle ─────────────────────────────────────────────────────────────
-
+    # Lifecycle 
     async def close(self):
         """Close this connection's underlying client."""
         self._connected = False
@@ -185,10 +165,7 @@ class TonpoConnectionAdapter:
         except Exception:
             pass
 
-
-# ---------------------------------------------------------------------------
 # GatewayManager
-# ---------------------------------------------------------------------------
 # Manages one SDK client per user.  Public interface unchanged from before.
 
 class GatewayManager:
@@ -248,8 +225,7 @@ class GatewayManager:
     def is_ready(self) -> bool:
         return self._ready.is_set()
 
-    # ── User registration ─────────────────────────────────────────────────────
-
+    # User registration 
     async def register_user(
         self,
         telegram_id: int,
@@ -339,8 +315,7 @@ class GatewayManager:
             self.user_gateway_ids.pop(telegram_id, None)
             return False, str(e), {}
 
-    # ── Connection access ─────────────────────────────────────────────────────
-
+    # Connection access
     async def get_connection(self, telegram_id: int) -> TonpoConnectionAdapter:
         """
         Return a TonpoConnectionAdapter for the given user.
@@ -397,9 +372,7 @@ class GatewayManager:
         self.user_account_ids[telegram_id] = gateway_account_id
 
 
-# ---------------------------------------------------------------------------
 # ExecutionProvider
-# ---------------------------------------------------------------------------
 # Thin wrapper used by main.py — unchanged public interface.
 
 class ExecutionProvider:
