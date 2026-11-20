@@ -54,7 +54,7 @@ class PriceValidator:
         """
         Validate price value
         """
-        if not isinstance(price, (int, float)):
+        if isinstance(price, bool) or not isinstance(price, (int, float)):
             return False, "Price must be a number"
         
         if price <= min_price:
@@ -88,11 +88,11 @@ class RiskValidator:
     """Validates risk parameters"""
     
     @staticmethod
-    def validate_risk_percentage(risk: float) -> Tuple[bool, Optional[str]]:
+    def validate_risk_percentage(risk_fraction: float) -> Tuple[bool, Optional[str]]:
         """
         Validate risk percentage
         """
-        if not isinstance(risk, (int, float)):
+        if isinstance(risk, bool) or not isinstance(price, (int, float)):
             return False, "Risk must be a number"
         
         if risk < settings.MIN_RISK_FACTOR:
@@ -104,11 +104,15 @@ class RiskValidator:
         return True, None
     
     @staticmethod
-    def validate_position_size(size: float, min_size: float = 0.01, max_size: float = 100) -> Tuple[bool, Optional[str]]:
+    def validate_position_size(size: float, min_size: float = 0.01,
+                           max_size: Optional[float] = None) -> Tuple[bool, Optional[str]]:
         """
         Validate position size
         """
-        if not isinstance(size, (int, float)):
+        if max_size is None:
+            max_size = settings.DEFAULT_MAX_POSITION_SIZE
+            
+        if isinstance(size, bool) or not isinstance(price, (int, float)):
             return False, "Position size must be a number"
         
         if size < min_size:
@@ -124,7 +128,8 @@ class RiskValidator:
         return True, None
     
     @staticmethod
-    def validate_stop_loss(entry: float, sl: float, order_type: OrderType) -> Tuple[bool, Optional[str]]:
+    def validate_stop_loss(entry: float, sl: float, order_type: OrderType,
+                       symbol: str) -> Tuple[bool, Optional[str]]:
         """
         Validate stop loss relative to entry
         """
@@ -136,9 +141,9 @@ class RiskValidator:
                 return False, "Stop loss must be above entry for SELL orders"
         
         # Check minimum distance
-        min_distance = 0.0001  # 1 pip minimum
-        if abs(entry - sl) < min_distance:
-            return False, "Stop loss too close to entry"
+        pip = pip_size(symbol)
+        if abs(entry - sl) < pip - 1e-9:
+            return False, "Stop loss closer than 1 pip to entry"
         
         return True, None
     
@@ -248,9 +253,14 @@ class TimeValidator:
         """
         if current_time is None:
             current_time = datetime.utcnow()
+            wd, h = current_time.weekday(), current_time.hour
         
         # Forex is 24/5
-        if current_time.weekday() >= 5:  # Saturday or Sunday
+        if wd == 5:
+            return False
+        if wd == 4 and h >= 22:
+            return False
+        if wd == 6 and h < 22:
             return False
         
         # Check specific sessions
@@ -348,6 +358,9 @@ class TradeValidator:
         """
         errors = []
         
+        if not take_profits:
+            errors.append("At least one take profit is required")
+        
         # Validate symbol
         valid, msg = self.symbol_validator.validate(symbol)
         if not valid:
@@ -355,7 +368,7 @@ class TradeValidator:
         
         # Validate stop loss
         if entry:
-            valid, msg = self.risk_validator.validate_stop_loss(entry, stop_loss, order_type)
+            valid, msg = self.risk_validator.validate_stop_loss(entry, stop_loss, order_type, symbol)
             if not valid:
                 errors.append(msg)
         
@@ -367,20 +380,15 @@ class TradeValidator:
                     errors.append(f"TP{i+1}: {msg}")
         
         # Validate balance if provided
-        if balance is not None and entry:
-            # Check if balance is sufficient (simplified)
-            required_margin = balance * 0.01  # Approximate
-            if balance < required_margin:
-                errors.append("Insufficient balance")
-        
-        return errors
+        if balance is not None and balance <= 0:
+            errors.append("Insufficient balance")
     
     def validate_order_type(self, order_type: str) -> Tuple[bool, Optional[OrderType]]:
         """
         Validate and convert order type string
         """
         try:
-            ot = OrderType(order_type.title())
+            ot = OrderType(order_type.replace('_', ' ').title())
             return True, ot
         except ValueError:
             return False, None

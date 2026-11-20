@@ -39,31 +39,31 @@ class SignalParser:
         # Try JSON first (most structured)
         try:
             return self._parse_json(text)
-        except SignalParseError as e:
+        except (SignalParseError, InvalidSymbolError) as e:
             errors.append(f"JSON parser failed: {e}")
         
         # Try standard format
         try:
             return self._parse_standard(text)
-        except SignalParseError as e:
+        except (SignalParseError, InvalidSymbolError) as e:
             errors.append(f"Standard parser failed: {e}")
         
         # Try compact format
         try:
             return self._parse_compact(text)
-        except SignalParseError as e:
+        except (SignalParseError, InvalidSymbolError) as e:
             errors.append(f"Compact parser failed: {e}")
         
         # Try MT4 format
         try:
             return self._parse_mt4(text)
-        except SignalParseError as e:
+        except (SignalParseError, InvalidSymbolError) as e:
             errors.append(f"MT4 parser failed: {e}")
         
         # Try TradingView format
         try:
             return self._parse_tradingview(text)
-        except SignalParseError as e:
+        except (SignalParseError, InvalidSymbolError) as e:
             errors.append(f"TradingView parser failed: {e}")
         
         # If we get here, all parsers failed
@@ -92,6 +92,9 @@ class SignalParser:
         except json.JSONDecodeError as e:
             raise SignalParseError(f"Invalid JSON: {e}")
         
+        if not isinstance(data, dict):
+            raise SignalParseError("JSON signal must be an object")
+            
         # Validate required fields
         required = ['order_type', 'symbol', 'stop_loss', 'take_profits']
         missing = [f for f in required if f not in data]
@@ -105,8 +108,9 @@ class SignalParser:
             raise SignalParseError(f"Invalid order type: {data.get('order_type')}")
         
         # Validate symbol
+        if not isinstance(data['symbol'], str):
+            raise SignalParseError("Symbol must be a string")
         symbol = data['symbol'].upper()
-        self._validate_symbol(symbol)
         
         # Parse entry (can be null for market orders)
         entry = data.get('entry')
@@ -123,7 +127,8 @@ class SignalParser:
             raise SignalParseError(f"Invalid stop loss: {data['stop_loss']}")
         
         # Parse take profits
-        take_profits = []
+        if not isinstance(data['take_profits'], list):
+            raise SignalParseError("take_profits must be a list")
         for tp in data['take_profits']:
             try:
                 take_profits.append(float(tp))
@@ -407,12 +412,14 @@ class SignalParser:
             try:
                 entry = float(parts[3])
             except ValueError:
-                pass
+                raise SignalParseError(f"Invalid entry price: {parts[3]}")
+        elif len(parts) >= 3 and parts[2].lower() == 'at':
+                raise SignalParseError("Missing price after 'at'")
         
         # Parse second line: SL and TP
         second_line = lines[1].upper()
         sl_match = re.search(r'SL:?\s*(\d+\.?\d*)', second_line)
-        tp_match = re.search(r'TP:?\s*(\d+\.?\d*)', second_line)
+        tps_raw = re.findall(r'TP\d*:?\s*(\d+\.?\d*)', second_line)
         
         if not sl_match:
             raise SignalParseError("Stop loss not found in TradingView format")
@@ -444,7 +451,7 @@ class SignalParser:
             symbol=symbol,
             entry=entry,
             stop_loss=stop_loss,
-            take_profits=take_profits,
+            take_profits = [float(x) for x in tps_raw]
             metadata={'source': 'tradingview', 'raw': text}
         )
         

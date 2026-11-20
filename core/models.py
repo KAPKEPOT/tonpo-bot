@@ -1,12 +1,14 @@
 # fx/core/models.py
 from dataclasses import dataclass, field
 from typing import List, Optional, Dict, Any, Union
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 import json
 
 from config.constants import OrderType
 
+def _utc(dt: datetime) -> datetime:
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 @dataclass
 class TradeSignal:
@@ -22,8 +24,9 @@ class TradeSignal:
     
     def __post_init__(self):
         """Validate after initialization"""
-        if self.take_profits and len(self.take_profits) > 3:
-            self.take_profits = self.take_profits[:3]  # Max 3 TPs
+        if len(self.take_profits) > 3:
+            logger.warning("Dropping TPs beyond 3: %s", self.take_profits[3:])
+            self.take_profits = self.take_profits[:3]
     
     @property
     def has_multiple_tps(self) -> bool:
@@ -50,15 +53,16 @@ class TradeSignal:
         """Check if this is a pending order (limit/stop)"""
         return self.is_limit_order or self.is_stop_order
     
+    BUY_TYPES = frozenset({OrderType.BUY, OrderType.BUY_LIMIT, OrderType.BUY_STOP})
+    SELL_TYPES = frozenset({OrderType.SELL, OrderType.SELL_LIMIT, OrderType.SELL_STOP})
+    
     @property
     def is_buy(self) -> bool:
-        """Check if this is a buy order"""
-        return 'Buy' in self.order_type.value
+        return self.order_type in BUY_TYPES
     
     @property
     def is_sell(self) -> bool:
-        """Check if this is a sell order"""
-        return 'Sell' in self.order_type.value
+        return self.order_type in SELL_TYPES
     
     @property
     def direction(self) -> str:
@@ -124,14 +128,14 @@ class TradeSignal:
             symbol=data['symbol'],
             entry=data.get('entry'),
             stop_loss=data['stop_loss'],
-            take_profits=data.get('take_profits', []),
-            metadata=data.get('metadata', {})
+            take_profits=list(data.get('take_profits', [])),
+            metadata=dict(data.get('metadata', {}))
         )
     
     def __str__(self) -> str:
         """String representation"""
         tps = ', '.join([f"{tp:.5f}" for tp in self.take_profits])
-        entry_str = f"{self.entry:.5f}" if self.entry else "MARKET"
+        entry_str = f"{self.entry:.5f}" if self.entry is not None else "MARKET"
         return f"{self.order_type.value} {self.symbol} @ {entry_str} SL:{self.stop_loss:.5f} TP:[{tps}]"
 
 
@@ -152,9 +156,8 @@ class CalculatedTrade:
     account_currency: str = "USD"
     
     def __post_init__(self):
-        """Calculate derived values"""
-        if self.potential_loss > 0:
-            self.risk_reward_ratio = self.total_potential_profit / self.potential_loss
+        """No derived overrides: risk_reward_ratio is set by RiskEngine."""
+        pass
     
     @property
     def total_potential_profit(self) -> float:
@@ -185,10 +188,9 @@ class CalculatedTrade:
         return len(self.take_profit_pips)
     
     def get_tp_profit(self, index: int) -> float:
-        """Get profit for specific TP index"""
-        if 0 <= index < len(self.potential_profits):
-            return self.potential_profits[index]
-        return 0.0
+        if not 0 <= index < len(self.potential_profits):
+            raise IndexError(f"No profit for TP index {index}")
+        return self.potential_profits[index]
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization"""
@@ -278,7 +280,9 @@ class Position:
     @property
     def total_profit(self) -> float:
         """Total profit including swap and commission"""
-        return self.profit + self.swap - self.commission
+        #return self.profit + self.swap - self.commission
+        # Commission and swap are signed (negative = cost)
+        return self.profit + self.swap + self.commission
     
     @property
     def is_profitable(self) -> bool:
@@ -395,12 +399,12 @@ class AccountInfo:
     @property
     def is_margin_call(self) -> bool:
         """Check if account is in margin call"""
-        return self.margin_level < 100
+        return self.margin > 0 and self.margin_level < 100
     
     @property
     def is_stop_out(self) -> bool:
         """Check if account is in stop out"""
-        return self.margin_level < 50
+        return self.margin > 0 and self.margin_level < 50
     
     @property
     def margin_used_percent(self) -> float:
@@ -480,7 +484,7 @@ class OrderResult:
     take_profit: Optional[float] = None
     comment: Optional[str] = None
     magic: int = 0
-    state: str = 'filled'  # filled, pending, cancelled, rejected
+    state: str = 'pending'  # filled, pending, cancelled, rejected
     error: Optional[str] = None
     execution_time: Optional[datetime] = None
     
@@ -538,7 +542,7 @@ class SignalHistory:
     def processing_time(self) -> Optional[float]:
         """Calculate processing time in seconds"""
         if self.executed_at:
-            return (self.executed_at - self.created_at).total_seconds()
+            return (_utc(self.executed_at) - _utc(self.created_at)).total_seconds()
         return None
     
     def to_dict(self) -> Dict[str, Any]:
@@ -594,6 +598,15 @@ class UserPreferences:
             'notify_daily_report': self.notify_daily_report,
             'auto_trading_enabled': self.auto_trading_enabled,
             'language': self.language
+            max_risk_per_trade: float = 0.05
+            min_risk_per_trade: float = 0.001
+            min_stop_loss_pips: int = 10
+            max_stop_loss_pips: int = 500
+            min_take_profit_pips: int = 10
+            max_take_profit_pips: int = 1000
+            min_risk_reward: float = 1.0
+            split_multiple_tps: bool = True
+            symbol_risk_overrides: Dict[str, float] = field(default_factory=dict)
         }
 
 
@@ -659,7 +672,7 @@ class SignalBatch:
     """
     def __init__(self, signals: List[TradeSignal] = None):
         self.signals = signals or []
-        self.created_at = datetime.utcnow()
+        self.created_at = datetime.now(timezone.utc)
     
     def add_signal(self, signal: TradeSignal):
         """Add signal to batch"""
@@ -678,7 +691,7 @@ class SignalBatch:
     @property
     def symbols(self) -> List[str]:
         """Get unique symbols in batch"""
-        return list(set(s.symbol for s in self.signals))
+        return sorted({s.symbol for s in self.signals})
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary"""

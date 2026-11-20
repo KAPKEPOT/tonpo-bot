@@ -1,4 +1,4 @@
-# fx/core/risk_engine.py
+# tnp/core/risk_engine.py
 import math
 from typing import Dict, Any, List, Optional, Tuple
 from decimal import Decimal
@@ -7,6 +7,7 @@ import logging
 from core.models import TradeSignal, CalculatedTrade
 from core.exceptions import RiskError
 from config.constants import JPY_SYMBOLS
+from core.exceptions import RiskError, PositionSizeError
 from config.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -54,8 +55,8 @@ class PositionSizeCalculator:
         if balance <= 0:
             raise RiskError("Balance must be positive")
         
-        if risk_percentage <= 0 or risk_percentage > 0.1:
-            raise RiskError(f"Risk percentage must be between 0.001 and 0.1, got {risk_percentage}")
+        if not (settings.MIN_RISK_FACTOR <= risk_percentage <= settings.MAX_RISK_FACTOR):
+            raise RiskError(f"Risk must be between {settings.MIN_RISK_FACTOR} and {settings.MAX_RISK_FACTOR}, " f"got {risk_percentage}")
         
         if stop_loss_pips <= 0:
             raise RiskError(f"Stop loss pips must be positive, got {stop_loss_pips}")
@@ -81,7 +82,8 @@ class PositionSizeCalculator:
         # Ensure minimum size
         min_size = 0.01
         if position_size < min_size:
-            logger.warning(f"Position size {position_size} below minimum, using {min_size}")
+            raise PositionSizeError(
+        f"Risk too small for minimum lot: raw size {raw_size:.4f} < {min_size}")
             position_size = min_size
         
         return position_size
@@ -108,8 +110,11 @@ class PositionSizeCalculator:
         )
         
         # Split equally among TPs
-        if len(take_profit_pips) > 1:
-            individual_sizes = [total_size / len(take_profit_pips)] * len(take_profit_pips)
+        n = len(take_profit_pips)
+        if n > 1:
+            base = math.floor(total_size / n * 100) / 100
+            individual_sizes = [base] * (n - 1)
+            individual_sizes.append(round(total_size - base * (n - 1), 2))
         else:
             individual_sizes = [total_size]
         
@@ -126,8 +131,10 @@ class PositionSizeCalculator:
         Calculate required margin for a position
         """
         # Simplified margin calculation
-        # In reality, this depends on broker, symbol, etc.
-        contract_size = 100000  # 1 lot = 100,000 units
+        LOT_UNITS = {'XAUUSD': 100, 'XAGUSD': 5000}   # troy oz per lot (verify with your broker)
+        def lot_units(symbol: str) -> int:
+            return LOT_UNITS.get(base_symbol(symbol), 100_000)
+            
         notional_value = position_size * contract_size * price
         margin = notional_value / leverage
         
@@ -283,7 +290,9 @@ class RiskEngine:
         Calculate all trade metrics
         """
         # Determine risk factor
-        risk = risk_factor or self.default_risk
+        risk = risk_factor
+        if risk is None:
+            risk = (user_settings or {}).get('default_risk_factor', self.default_risk)
         
         # Apply user settings overrides
         if user_settings:
@@ -400,12 +409,12 @@ class RiskEngine:
             errors.append(f"Risk/reward too low: {calculated.risk_reward_ratio:.2f} < {min_rr}")
         
         # Check maximum risk per trade
-        max_risk_pct = user_settings.get('max_risk_per_trade', 5.0)
-        if calculated.risk_percentage > max_risk_pct:
-            errors.append(f"Risk {calculated.risk_percentage:.1f}% > max {max_risk_pct}%")
+        max_risk = user_settings.get('max_risk_per_trade', 0.05)
+        if calculated.risk_percentage / 100 > max_risk:
+            errors.append(f"Risk {calculated.risk_percentage:.1f}% > max {max_risk*100:.1f}%")
         
         # Check maximum position size
-        max_size = user_settings.get('max_position_size', 100.0)
+        max_size = user_settings.get('max_position_size', settings.DEFAULT_MAX_POSITION_SIZE)
         if calculated.position_size > max_size:
             errors.append(f"Position size {calculated.position_size} > max {max_size}")
         
@@ -479,7 +488,7 @@ class DrawdownCalculator:
                 peak = value
             else:
                 drawdown = peak - value
-                drawdown_pct = (drawdown / peak) * 100
+                drawdown_pct = (drawdown / peak) * 100 if peak > 0 else 0.0
                 
                 if drawdown > max_drawdown:
                     max_drawdown = drawdown
@@ -500,11 +509,11 @@ class DrawdownCalculator:
         """
         Calculate risk of ruin using simplified formula
         """
-        if win_rate <= 0 or win_rate >= 1:
-            return 1.0
+        if avg_loss <= 0 or initial_capital <= 0:
+            return 0.0 if avg_win > 0 else 1.0
         
         # Calculate edge
-        edge = (win_rate * avg_win) - ((1 - win_rate) * avg_loss)
+        edge = ((win_rate * avg_win) - ((1 - win_rate) * avg_loss)) / avg_loss
         if edge <= 0:
             return 1.0  # Certain ruin if no edge
         
