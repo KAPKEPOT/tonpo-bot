@@ -1,13 +1,15 @@
-# fx/config/settings.py
+# tnp/config/settings.py
+import base64
 import os
 import json
-from typing import List, Optional, Dict, Any
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing import Annotated, List, Literal, Optional, Dict, Any
+from pydantic_settings import BaseSettings, SettingsConfigDict, NoDecode
 from pydantic import field_validator, Field
 from dotenv import load_dotenv
+from config.constants import SUBSCRIPTION_TIERSfrom config.constants import SUBSCRIPTION_TIERS
 
 # Load environment variables from .env file
-load_dotenv()
+#load_dotenv()
 
 class Settings(BaseSettings):
     """
@@ -22,7 +24,7 @@ class Settings(BaseSettings):
     
     # App Info
     APP_NAME: str = "Tonpo Bot"
-    APP_VERSION: str = "1.0.0"
+    APP_VERSION: str = "0.1.2"
     APP_DESCRIPTION: str = "Telegram Bot for MetaTrader 5 Trading"
     DEBUG: bool = Field(False, validation_alias='DEBUG')
     
@@ -72,7 +74,7 @@ class Settings(BaseSettings):
     # Telegram Configuration
     BOT_TOKEN: str = Field(..., validation_alias='BOT_TOKEN')
     BOT_USERNAME: Optional[str] = Field(None, validation_alias='BOT_USERNAME')
-    ADMIN_USER_IDS: List[int] = Field(default=[], validation_alias='ADMIN_USER_IDS')
+    ADMIN_USER_IDS: Annotated[List[int], NoDecode] = Field(default=[], validation_alias='ADMIN_USER_IDS')
     USE_WEBHOOK: bool = Field(False, validation_alias='USE_WEBHOOK')
     WEBHOOK_URL: Optional[str] = Field(None, validation_alias='WEBHOOK_URL')
     WEBHOOK_PORT: int = Field(8443, validation_alias='WEBHOOK_PORT')
@@ -129,20 +131,25 @@ class Settings(BaseSettings):
     REDIS_SOCKET_TIMEOUT: int = Field(5, validation_alias='REDIS_SOCKET_TIMEOUT')
     
     # Security
-    ENCRYPTION_KEY: Optional[str] = Field(None, validation_alias='ENCRYPTION_KEY')
+    ENCRYPTION_KEY: str = Field(None, validation_alias='ENCRYPTION_KEY')
     JWT_SECRET: str = Field(..., validation_alias='JWT_SECRET')
     JWT_ALGORITHM: str = Field("HS256", validation_alias='JWT_ALGORITHM')
     JWT_EXPIRY_HOURS: int = Field(24, validation_alias='JWT_EXPIRY_HOURS')
-    CORS_ORIGINS: List[str] = Field(["*"], validation_alias='CORS_ORIGINS')
+    #CORS_ORIGINS: List[str] = Field(["*"], validation_alias='CORS_ORIGINS')
+    CORS_ORIGINS: Annotated[List[str], NoDecode] = Field(["*"], validation_alias='CORS_ORIGINS')
+    
+    @field_validator('JWT_SECRET')
+    @classmethod
+    def validate_jwt_secret(cls, v: str) -> str:
+        if len(v) < 32:
+            raise ValueError("JWT_SECRET must be at least 32 characters")
+        return v
     
     @field_validator('ENCRYPTION_KEY')
     @classmethod
-    def validate_encryption_key(cls, v):
-        if not v:
-            import base64
-            import os
-            # Generate a key for development
-            v = base64.urlsafe_b64encode(os.urandom(32)).decode()
+    def validate_encryption_key(cls, v: str) -> str:
+        if len(base64.urlsafe_b64decode(v)) != 32:
+            raise ValueError("ENCRYPTION_KEY must be 32 bytes, base64url-encoded")
         return v
     
     # Trading Configuration
@@ -150,7 +157,7 @@ class Settings(BaseSettings):
     MAX_RISK_FACTOR: float = Field(0.05, validation_alias='MAX_RISK_FACTOR')
     MIN_RISK_FACTOR: float = Field(0.001, validation_alias='MIN_RISK_FACTOR')
     DEFAULT_MAX_POSITION_SIZE: float = Field(10.0, validation_alias='DEFAULT_MAX_POSITION_SIZE')
-    ALLOWED_SYMBOLS: List[str] = Field([
+    ALLOWED_SYMBOLS: Annotated[List[str], NoDecode] = Field([
         'AUDCAD', 'AUDCHF', 'AUDJPY', 'AUDNZD', 'AUDUSD',
         'CADCHF', 'CADJPY', 'CHFJPY', 'EURAUD', 'EURCAD',
         'EURCHF', 'EURGBP', 'EURJPY', 'EURNZD', 'EURUSD',
@@ -184,19 +191,19 @@ class Settings(BaseSettings):
     
     # Subscription Plans (prices in USD)
     FREE_PLAN_MAX_TRADES: int = Field(10, validation_alias='FREE_PLAN_MAX_TRADES')
-    FREE_PLAN_MAX_SIZE: float = Field(1.0, validation_alias='FREE_PLAN_MAX_SIZE')
+    FREE_PLAN_MAX_SIZE: float = Field(SUBSCRIPTION_TIERS['free']['max_position_size'], validation_alias='FREE_PLAN_MAX_SIZE')
     
     BASIC_PLAN_PRICE: float = Field(9.99, validation_alias='BASIC_PLAN_PRICE')
     BASIC_PLAN_MAX_TRADES: int = Field(50, validation_alias='BASIC_PLAN_MAX_TRADES')
-    BASIC_PLAN_MAX_SIZE: float = Field(5.0, validation_alias='BASIC_PLAN_MAX_SIZE')
+    BASIC_PLAN_MAX_SIZE: float = Field(SUBSCRIPTION_TIERS['basic']['max_position_size'], validation_alias='BASIC_PLAN_MAX_SIZE')
     
     PRO_PLAN_PRICE: float = Field(29.99, validation_alias='PRO_PLAN_PRICE')
     PRO_PLAN_MAX_TRADES: int = Field(200, validation_alias='PRO_PLAN_MAX_TRADES')
-    PRO_PLAN_MAX_SIZE: float = Field(10.0, validation_alias='PRO_PLAN_MAX_SIZE')
+    PRO_PLAN_MAX_SIZE: float = Field(SUBSCRIPTION_TIERS['pro']['max_position_size'], validation_alias='PRO_PLAN_MAX_SIZE')
     
     ENTERPRISE_PLAN_PRICE: float = Field(99.99, validation_alias='ENTERPRISE_PLAN_PRICE')
     ENTERPRISE_PLAN_MAX_TRADES: int = Field(1000, validation_alias='ENTERPRISE_PLAN_MAX_TRADES')
-    ENTERPRISE_PLAN_MAX_SIZE: float = Field(50.0, validation_alias='ENTERPRISE_PLAN_MAX_SIZE')
+    ENTERPRISE_PLAN_MAX_SIZE: float = Field(SUBSCRIPTION_TIERS['enterprise']['max_position_size'], validation_alias='ENTERPRISE_PLAN_MAX_SIZE')
     
     # Notification Settings
     NOTIFICATION_QUEUE_SIZE: int = Field(100, validation_alias='NOTIFICATION_QUEUE_SIZE')
@@ -209,7 +216,7 @@ class Settings(BaseSettings):
     SENTRY_DSN: Optional[str] = Field(None, validation_alias='SENTRY_DSN')
     
     # Logging
-    LOG_LEVEL: str = Field("INFO", validation_alias='LOG_LEVEL')
+    LOG_LEVEL: Literal['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'] = Field("INFO", validation_alias='LOG_LEVEL')
     LOG_FORMAT: str = Field(
         "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         validation_alias='LOG_FORMAT'
@@ -219,7 +226,7 @@ class Settings(BaseSettings):
     LOG_BACKUP_COUNT: int = Field(5, validation_alias='LOG_BACKUP_COUNT')
     
     # Feature Flags
-    ENABLE_AUTO_TRADING: bool = Field(True, validation_alias='ENABLE_AUTO_TRADING')
+    ENABLE_AUTO_TRADING: bool = Field(False, validation_alias='ENABLE_AUTO_TRADING')
     ENABLE_API_ACCESS: bool = Field(True, validation_alias='ENABLE_API_ACCESS')
     ENABLE_WEBHOOKS: bool = Field(False, validation_alias='ENABLE_WEBHOOKS')
     ENABLE_MULTIPLE_TPS: bool = Field(True, validation_alias='ENABLE_MULTIPLE_TPS')
@@ -240,5 +247,5 @@ class Settings(BaseSettings):
 settings = Settings()
 
 # Validate critical settings
-if not settings.ENCRYPTION_KEY:
-    raise ValueError("ENCRYPTION_KEY must be set in production")
+#if not settings.ENCRYPTION_KEY:
+#    raise ValueError("ENCRYPTION_KEY must be set in production")

@@ -79,10 +79,7 @@ PIP_MULTIPLIERS: Dict[str, float] = {
 }
 
 # JPY pairs use different pip multiplier
-JPY_SYMBOLS: List[str] = [
-    'JPY', 'jpy', 'USDJPY', 'EURJPY', 'GBPJPY', 'AUDJPY', 
-    'NZDJPY', 'CADJPY', 'CHFJPY'
-]
+JPY_SYMBOLS: List[str] = ['JPY']
 
 # Trade execution modes
 TRADE_MODES: Dict[str, str] = {
